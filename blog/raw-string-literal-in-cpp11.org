@@ -1,0 +1,39 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: raw string literal in cpp11
+#+DATE: 2019-07-29
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: c++ 
+#+HUGO_CATEGORIES: c++
+#+HUGO_DRAFT: false
+
+C++11 中增加了新的语法，允许我们定义所见即所得的字符串，即不再需要转义字符。
+
+<!-- more -->
+
+它的基本语法格式如下：
+
+#+BEGIN_SRC c++
+R"delim(...)delim"
+#+END_SRC
+
+其中 delim 是个字符序列，最多 16 个字符，不可含反斜线，空格和小括号。
+
+#+BEGIN_SRC c++
+#include <iostream>
+
+using namespace std;
+
+int main() {
+
+  // 带转义字符
+  std::cout << "\"Hello \\ World\"" << std::endl;
+  // raw string
+  std::cout << R"("Hello \ World")" << std::endl;
+  // 里面有括号，需要加上字符序列才能确认边界
+  std::cout << R"delim("(Hello \ World)")delim" << std::endl;
+  return 0;
+}
+
+#+END_SRC

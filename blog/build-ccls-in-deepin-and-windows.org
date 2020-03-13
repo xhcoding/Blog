@@ -1,0 +1,112 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: build ccls in deepin and Windows
+#+DATE: 2019-08-24
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++ Tools
+#+HUGO_CATEGORIES: Tools
+#+HUGO_DRAFT: false
+
+* deepin
+deepin 上的 gcc 和 llvm+clang 版本都太低了，所以要想编译 ccls，首先要编译 gcc，然后
+编译 llvm+clang，最后编译 ccls。
+
+** 编译 gcc
+1. 从 gcc 的官网（ https://gcc.gnu.org/ ）下载最新的源码并解压。
+2. 安装依赖
+   #+BEGIN_SRC shell
+cd gcc
+./contrib/download_prerequisites
+   #+END_SRC
+
+3. 编译
+   #+BEGIN_SRC shell
+./configure --prefix=/home/xhcoding/Opt/gcc-9.1 --enable-checking=release --enable-languages=c,c++ --disable-multilib
+make -j8
+make install
+   #+END_SRC
+
+   --prefix 是安装目录
+
+** 编译 llvm
+1. clone 源码
+   #+BEGIN_SRC shell
+git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/llvm.git
+git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/clang.git llvm/tools/clang
+   #+END_SRC
+
+2. 编译
+   需要 Ninja ，使用刚出炉的 gcc 作为编译器
+   #+BEGIN_SRC shell
+cd llvm
+cmake -H. -BRelease -G Ninja -DCMAKE_INSTALL_PREFIX=/home/xhcoding/Opt/llvm -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/home/xhcoding/Opt/gcc-9.1 -DCMAKE_CXX_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/g++ -DCMAKE_C_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/gcc
+ninja -C Release
+   #+END_SRC
+
+** 编译 ccls
+1. clone 源码
+   #+BEGIN_SRC shell
+git clone --recursive https://github.com/MaskRay/ccls
+   #+END_SRC
+2. 编译
+   #+BEGIN_SRC shell
+cmake -H. -BRelease -G Ninja -DCMAKE_INSTALL_PREFIX=/home/xhcoding/Opt/ccls -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="/home/xhcoding/Opt/gcc-9.1;/home/xhcoding/Code/llvm/Release;/home/xhcoding/Code/llvm/Release/tools/clang;/home/xhcoding/Code/llvm;/home/xhcoding/Code/llvm/tools/clang" -DCMAKE_CXX_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/g++ -DCMAKE_C_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/gcc
+ninja -C Release
+   #+END_SRC 
+
+** 使用 ccls
+由于 ccls 使用最新的 gcc 编译的，直接运行 ccls 会导致找不到高版本的 glibc 。出现如下错
+误：
+#+BEGIN_QUOTE
+./ccls: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.26' not found (required by ./ccls)
+#+END_QUOTE
+
+解决方法可以将新的 glibc 安装到系统 lib 目录，或者设置 =LD_LIBRARY_PATH= 的值。我
+在生产环境上用 ccls ，不想污染系统自带的 gcc 环境，所以用下面的脚本包裹了一下。
+
+#+BEGIN_SRC shell
+#!/bin/sh
+LD_LIBRARY_PATH=/home/xhcoding/Opt/gcc-9.1/lib64 /home/xhcoding/Opt/ccls/bin/ccls $*
+#+END_SRC
+
+
+运行刚编译的 clang 的工具也会有对应的问题，解决方法如上。
+
+* Windows
+Windows 上有几种工具链：MSVC ，msys2 等。我的开发都是用的 MSVC ，所以这里只讲
+MSVC 编译的方法。使用 VS2017 或以上。
+
+为了不用再 cmd 里配置环境，可以使用 *适用于 VS2017 的 x64 本机工具命令提示*。
+** 编译 llvm
+1. clone 代码
+   #+BEGIN_SRC shell
+git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/llvm.git
+git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/clang.git llvm/tools/clang
+
+   #+END_SRC
+2. 编译
+   #+BEGIN_SRC shell
+cd llvm
+cmake -H. -BRelease -G Ninja -DCMAKE_BUILD_TYPE=Release  -DCMAKE_CXX_COMPILER=cl -DCMAKE_C_COMPILER=cl
+ninja -C Release clangFormat clangFrontendTool clangIndex clangTooling clang
+   #+END_SRC 
+
+** 编译 ccls
+1. clone 代码
+#+BEGIN_SRC shell
+git clone  --recursive https://github.com/MaskRay/ccls
+#+END_SRC
+
+2. 编译
+#+BEGIN_SRC shell
+cmake -H. -BRelease -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl -DCMAKE_PREFIX_PATH="F:/Code/CCPro/llvm/Release;F:/Code/CCPro/llvm/Release/tools/clang;F:/Code/CCPro/llvm;F:/Code/CCPro/llvm/tools/clang"
+ninja -C Release
+#+END_SRC   
+
+=CMAKE_PREFIX_PATH= 根据实际路径对照修改
+
+3. 使用 ccls
+   Windows 下生成 =compile_commands.json= 需要使用 =Ninja=
+* 注意
+1. 编译成功 ccls 后最好不要删除 llvm 目录，原因：https://github.com/MaskRay/ccls/wiki/Install#clang-resource-directory
