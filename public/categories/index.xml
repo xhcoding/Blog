@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Categories on 小幻Coding - 小幻写字的地方</title>
+    <link>https://xhcoding.cn/categories/</link>
+    <description>Recent content in Categories on 小幻Coding - 小幻写字的地方</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-cn</language>
+    <lastBuildDate>Sat, 24 Aug 2019 00:00:00 +0800</lastBuildDate>
+    
+	<atom:link href="https://xhcoding.cn/categories/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Tools</title>
+      <link>https://xhcoding.cn/categories/tools/</link>
+      <pubDate>Sat, 24 Aug 2019 00:00:00 +0800</pubDate>
+      
+      <guid>https://xhcoding.cn/categories/tools/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>c&#43;&#43;</title>
+      <link>https://xhcoding.cn/categories/c&#43;&#43;/</link>
+      <pubDate>Mon, 29 Jul 2019 00:00:00 +0800</pubDate>
+      
+      <guid>https://xhcoding.cn/categories/c&#43;&#43;/</guid>
+      <description></description>
+    </item>
+    
+  </channel>
+</rss>

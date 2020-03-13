@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>C&#43;&#43; on 小幻Coding - 小幻写字的地方</title>
+    <link>https://xhcoding.cn/tags/c&#43;&#43;/</link>
+    <description>Recent content in C&#43;&#43; on 小幻Coding - 小幻写字的地方</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-cn</language>
+    <lastBuildDate>Sat, 24 Aug 2019 00:00:00 +0800</lastBuildDate>
+    
+	<atom:link href="https://xhcoding.cn/tags/c++/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>build ccls in deepin and Windows</title>
+      <link>https://xhcoding.cn/post/build-ccls-in-deepin-and-windows/</link>
+      <pubDate>Sat, 24 Aug 2019 00:00:00 +0800</pubDate>
+      
+      <guid>https://xhcoding.cn/post/build-ccls-in-deepin-and-windows/</guid>
+      <description>deepin deepin 上的 gcc 和 llvm+clang 版本都太低了，所以要想编译 ccls，首先要编译 gcc，然后 编译 llvm+clang，最后编译 ccls。 编译 gcc 从 gcc 的官网（ https://gcc.gnu.org/ ）下</description>
+    </item>
+    
+    <item>
+      <title>raw string literal in cpp11</title>
+      <link>https://xhcoding.cn/post/raw-string-literal-in-cpp11/</link>
+      <pubDate>Mon, 29 Jul 2019 00:00:00 +0800</pubDate>
+      
+      <guid>https://xhcoding.cn/post/raw-string-literal-in-cpp11/</guid>
+      <description>C++11 中增加了新的语法，允许我们定义所见即所得的字符串，即不再需要转义字符。 它的基本语法格式如下： 1 R&amp;#34;delim(...)delim&amp;#34; 其中 delim 是个字符序列，最多 16 个字符，不可含反</description>
+    </item>
+    
+  </channel>
+</rss>
