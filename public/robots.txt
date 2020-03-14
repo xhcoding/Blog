@@ -1,2 +1,0 @@
-User-agent: *
-Sitemap: https://xhcoding.cn/sitemap.xml
