@@ -1,0 +1,36 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 使用 curl命令发送 http 请求
+#+DATE: 2019-12-26
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: tool
+#+HUGO_CATEGORIES: tips
+#+HUGO_DRAFT: false
+
+* Linux
+Linux 可能需要安装 =curl= ，使用包管理工具安装即可。
+
+** post 的 json 格式请求
+
+#+BEGIN_SRC shell
+curl -X POST -H 'ContentType:application/json' -H 'HeadOne:This is Head' -d '{"first": "object"}' http://127.0.0.1:8080
+#+END_SRC
+
+使用 wget
+
+#+BEGIN_SRC shell
+wget --header='ContentType:application/json' --header='HeadOne:This is Head' --post-data='{"first": "object"}' http://127.0.0.1:8080
+#+END_SRC
+
+
+* Windows
+Windows 下的 powershell 脚本自带 =curl= 命令，实际上是 =Invoke-WebRequest= 的别
+名。
+
+** post 的 json 格式请求
+
+#+BEGIN_SRC powershell
+Invoke-WebRequest  http://127.0.0.1:8080 -ContentType "application/json" -Method POST -Body '{"first": "object"}' -Headers @{"HeadOne" = "This is Head"}
+#+END_SRC
+

@@ -1,0 +1,16 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: git操作集锦
+#+DATE: 2019-12-27
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: 
+#+HUGO_CATEGORIES: 
+#+HUGO_DRAFT: false
+
+* 批量删除本地分支
+** Powershell
+删除 =bugfix= 开头的分支，=select-string= 后选择匹配的分支，可以用正则表达式
+#+BEGIN_SRC powershell
+git branch -D @(git branch | select-string  "bugfix" | Foreach {$_.Line.Trim()})
+#+END_SRC

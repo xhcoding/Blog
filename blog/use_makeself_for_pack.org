@@ -1,0 +1,104 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: Linux下使用makeself 创建安装包
+#+DATE: 2020-01-15
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: 
+#+HUGO_CATEGORIES: 
+#+HUGO_DRAFT: false
+
+* 安装包的格式
+这种安装包的格式非常简单
+
+#+BEGIN_SRC
+|----------|
+| 安装脚本 |
+|----------|
+| 压缩包   |
+|----------|
+#+END_SRC
+
+安装包由一个文件组成，文件的前面是一段脚本，后面的就是一个压缩包。
+
+当运行安装包时，会执行前面的脚本，对后面的压缩包进行处理。
+
+* 一个简单的例子
+假设我们有下面的文件夹结构
+#+BEGIN_SRC 
+package
+    setup.sh
+    test.txt
+#+END_SRC
+
+test.txt 文件是一句话： "Hello World" 。setup.sh 读取 test.txt 文件并显示出来。
+
+那么我们如何打包呢？
+1. 首先将 package 压缩
+    #+BEGIN_SRC shell
+    tar -zcvf package.tar.gz package/*
+    #+END_SRC
+2. 然后写一段下面的安装脚本：install.sh
+    #+BEGIN_SRC shell
+    #!/bin/sh
+    lines=10
+    tail -n +$lines $0 > /tmp/package.tar.gz
+    cd /tmp
+    tar -zxvf /tmp/package.tar.gz
+    cd ./package
+    chmod +x ./setup.sh
+    ./setup.sh
+    exit 0
+    #+END_SRC
+
+3. 最后将这段脚本和压缩包连在一起就做成了上面那种格式的安装包。
+    #+BEGIN_SRC shell
+    cat install.sh package.tar.gz > package.run
+    #+END_SRC
+
+执行 package.run 就会运行最开始的脚本。
+install.sh 做的最重要的事情就是用 tail 将脚本后面的压缩包解出来，放到一个临时目录。
+然后解压并运行里面的 setup.sh 脚本。最后有个 =exit 0= 退出程序。安装包后面的压缩包数据就不会执行。
+
+* makeself 工具
+[[http://makeself.io/][makeself.sh]]是一个小型的脚本，他生成像上面描述的那种安装包。提供了校验以及能够用
+多种压缩格式。
+
+它的使用格式如下：
+#+BEGIN_SRC shell
+makeself.sh [args] archive_dir file_name label startup_script [script_args]
+#+END_SRC
+
+- =[args]= 是 makeself 的一些参数，具体可以通过 =makeself --help= 查看
+- =archive_dir= 是我们要压缩的目录，对应上面的=package=
+- =file_name= 就是生成的文件名，对应上面的 =package.run=
+- =label= 是一个字符串，用于描述这个安装包
+- =startup_script= 是启动脚本，当解压后会运行这个脚本。一般是写一个脚本文件
+  =setup.sh=，=startup_script= 就是 =./setup.sh=
+- =[script_args]= 是传给 =startup_script= 的参数
+
+使用 =makeself= 打包上面的例子:
+#+BEGIN_SRC shell
+makeself package package.run "this is package" ./setup.sh
+#+END_SRC
+执行后会生成 =package.run= 文件。执行 =package.run= 就会安装，安装流程如下：
+#+BEGIN_SRC
+|--------------------|
+| 校验文件           |
+|--------------------|
+| 解压压缩包         |
+|--------------------|
+| 进入压缩包目录     |
+|--------------------|
+| 执行 setup.sh 脚本 |
+|--------------------|
+#+END_SRC
+
+=package.run= 也可以有一些参数，可以通过 =./package.run --help= 查看。
+
+#+BEGIN_SRC shell
+./package.run -- args1 args2
+#+END_SRC
+上面可以将 =args1 args2= 传给 =setup.sh= 脚本
+
+更多内容可以参考 =makeself= 的官方网站：https://makeself.io/

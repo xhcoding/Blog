@@ -1,0 +1,13 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 我的书单 
+#+DATE: 2020-03-14
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Study
+#+HUGO_CATEGORIES: Study
+#+HUGO_DRAFT: false
+
+* 2020
+- [] [[https://book.douban.com/subject/7163250/][明朝那些事儿]]
+- [] [[https://book.douban.com/subject/25923597][Effective Modren C++]]
