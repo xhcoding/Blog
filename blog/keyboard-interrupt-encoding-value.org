@@ -1,0 +1,65 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 键盘中断编码
+#+DATE: 2018-01-17
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: CS
+#+HUGO_CATEGORIES: CS
+#+HUGO_DRAFT: false
+
+
+* 键盘编码表
+  当我们按下或放开按键时，键盘这个设备都会发送一个八位数的信息表示哪个
+  键被按下，哪个键被放开。放开的值是按下的值加上 0x80，如按下值为 0xA，
+  放开的值为 0x8A。
+  #+BEGIN_EXPORT html
+  <!-- more -->
+  #+END_EXPORT
+
+  具体的对照表如下（下表的值均为 16 进制，s 表示小键盘）：
+  | 按键    | 按下值 | 按键      | 按下值 |
+  |---------+--------+-----------+--------|
+  | Esc     |     01 | 1         |     02 |
+  | 2       |     03 | 3         |     04 |
+  | 4       |     05 | 5         |     06 |
+  | 6       |     07 | 7         |     08 |
+  | 8       |     09 | 9         |     0A |
+  | 0       |     0B | -         |     0C |
+  | \=      |     0D | Backspace |     0E |
+  | Tab     |     0F | Q         |     10 |
+  | W       |     11 | E         |     12 |
+  | E       |     13 | T         |     14 |
+  | Y       |     15 | U         |     16 |
+  | I       |     17 | O         |     18 |
+  | P       |     19 | [         |     1A |
+  | ]       |     1B | Enter     |     1C |
+  | LR_Ctrl |     1D | A         |     1E |
+  | S       |     1F | D         |     20 |
+  | F       |     21 | G         |     22 |
+  | H       |     23 | J         |     24 |
+  | K       |     25 | L         |     26 |
+  | ;       |     27 | '         |     28 |
+  | `       |     29 | L_Shift   |     2A |
+  | \       |     2B | Z         |     2C |
+  | X       |     2D | C         |     2E |
+  | V       |     2F | B         |     30 |
+  | N       |     31 | M         |     32 |
+  | ,       |     33 | .         |     34 |
+  | \/      |     35 | R_Shift   |     36 |
+  | \*      |     37 | LR_Alt    |     38 |
+  | Space   |     39 | CapsLk    |     3A |
+  | F1      |     3B | F2        |     3C |
+  | F3      |     3D | F4        |     3E |
+  | F5      |     3F | F6        |     40 |
+  | F7      |     41 | F8        |     42 |
+  | F9      |     43 | F10       |     44 |
+  | NumLock |     45 | Home      |     47 |
+  | Up      |     48 | PgUp      |     49 |
+  | -(s)    |     4A | Left      |     4B |
+  | 5(s)    |     4C | Right     |     4D |
+  | +(s)    |     4E | End       |     4F |
+  | Down    |     50 | PgDn      |     51 |
+  | Ins     |     52 | Del       |     53 |
+  | F11     |     57 | F12       |     56 |
+  | Window  |     5B |           |        |

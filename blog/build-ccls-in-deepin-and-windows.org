@@ -1,10 +1,10 @@
 #+HUGO_BASE_DIR: ../
 #+HUGO_SECTION: post
-#+TITLE: build ccls in deepin and Windows
+#+TITLE: 在Windows 和 Deepin 上构建 ccls
 #+DATE: 2019-08-24
 #+AUTHOR:
 #+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
-#+HUGO_TAGS: C++ Tools
+#+HUGO_TAGS: Tools
 #+HUGO_CATEGORIES: Tools
 #+HUGO_DRAFT: false
 

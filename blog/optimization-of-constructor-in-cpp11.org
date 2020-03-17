@@ -1,0 +1,329 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: C++11 中的构造函数优化
+#+DATE: 2017-07-12
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++ C++11
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+
+*声明：C++11 特性系列的笔记内容大多来自书籍《深入理解 C++11：C++11 新特性解析与应用》*
+
+* 继承构造函数
+    在 c++中有一个规则，如果派生类使用基类的成员函数，可以通过 using 声明来完成，如下：
+    #+HTML:<!-- more -->
+    #+BEGIN_SRC c++
+      #include <iostream>
+
+      using namespace std;
+
+      struct Base {
+          void fun(double i) {
+              cout << "Base:" << i << endl;
+          }
+      };
+
+      struct Derived : Base {
+          using Base::fun;
+          void fun(int i) {
+              cout << "Derived:" << i << endl;
+          }
+      };
+
+      int main() {
+          Base b;
+          b.fun(4.5);  // Base:4.5
+
+          Derived d;
+          d.fun(4.5); // Base:4.5
+          d.fun(1);   // Derived:1
+          return 0;
+      }
+
+    #+END_SRC
+    
+    在派生类 Derived 中使用 using 声明，派生类就拥有了两个 fun 函数的版本。派生类传入浮点
+    字面常量 4.5，结果会调用基类的版本。
+    在 c++11 中，这个想法被扩展到了构造函数上，子类可以通过使用 using 声明来声明继承基类
+    的构造函数。继承构造函数只会初始化基类的成员变量，对于派生类的成员变量则无能为力。
+    
+    #+BEGIN_SRC c++
+      #include <iostream>
+      using namespace std;
+
+      struct A {
+          A(int i) {
+              cout << "A:i=" << i << endl;
+          }
+
+          A(double d, int i) {
+
+          }
+
+          A(float f, int i, const char* c) {
+          }
+      };
+
+      struct B : A {
+          using A::A; // using 声明
+          int d {0}; // 初始化派生类的成员
+      };
+
+      int main() {
+          B b(123); // b.d被初始化为0
+          cout << "B:d=" << b.d << endl;
+      }
+    #+END_SRC
+
+    如果基类构造函数有默认值，对于继承构造函数讲，参数的默认值是不会被继承的。默认值导致
+    基类产生多个构造函数的版本，这些函数版本都会被派生类继承。
+
+    #+BEGIN_SRC c++
+      struct A {
+          A (int a = 3, double d = 3.3) {
+          }
+      };
+
+      struct B : A {
+          using A::A;
+      };
+    #+END_SRC
+
+    B 中的构造函数会包括如下的一些：
+    B (int, double);这是一个继承构造函数
+    B (int);这是减少一个参数的继承构造函数
+    B(const B&);这个复制构造函数，不是继承来的
+    B() 这是不包含参数的默认构造函数
+
+    如果一个派生类有多个基类，可能会产生继承构造函数冲突的情况。
+    #+BEGIN_SRC c++
+      struct A {
+          A(int) {
+          }
+      };
+
+      struct B{
+          B(int) {
+          }
+      };
+
+      struct C : A, B {
+          using A::A;
+          using B::B;
+      };
+    #+END_SRC
+
+    解决方法就是在 C 中显示定义冲突的构造函数
+
+    #+BEGIN_SRC c++
+      #include <iostream>
+
+      using namespace std;
+
+
+      struct A {
+          A(int i) {
+              cout << "A:" << i << endl;
+          }
+      };
+
+      struct B{
+          B(int i) {
+              cout << "B:" << i << endl;
+          }
+      };
+
+      struct C : A, B {
+          using A::A;
+          using B::B;
+
+          C(int i) : A(i), B(i) {
+              cout << "C:" << i << endl;
+          }
+      };
+
+      int main() {
+          C c(4);
+          return 0;
+      }
+
+    #+END_SRC
+
+    如果基类的构造函数被声明是私有成员函数，或者派生类是从基类虚继承的，那么就不能在
+    派生类中声明继承构造函数。
+    如果使用了继承构造函数，编译器不会再为派生类生成默认构造函数。
+
+
+* 委派构造函数
+    委派构造函数对构造函数的一项改进，其目的是减少程序员书写构造函数的时间。下面是一个
+    构造函数代码冗余的例子。
+    #+BEGIN_SRC c++
+      #include <iostream>
+      using namespace std;
+
+      class Info {
+        public:
+          Info() : type(1), name('a') {
+              InitRest();
+          }
+
+          Info(int i) : type(i), name('a') {
+              InitRest();
+          }
+
+          Info(char e) : type(1), name(e) {
+
+          }
+
+        private:
+          void InitRest() {     //其他初始化
+              cout << "InitRest" << endl;
+          }
+
+          int type;
+          char name;
+    
+      };
+
+    #+END_SRC
+    
+    三个构造函数基本上是相似的，代码存在很多重复。
+    在 C++11 中，我们可以通过委派构造函数来简化。
+    #+BEGIN_SRC c++
+      #include <iostream>
+      using namespace std;
+
+      class Info {
+        public:
+          Info() {
+              InitRest();
+          }
+
+          Info(int i) : Info() { // 委派Info()
+              type = i;
+              cout << "i = " << i << endl;
+          }
+
+          Info(char e) : Info() { // 委派Info()
+              name = e;
+              cout << "e=" << e << endl;
+          }
+
+        private:
+          void InitRest() {     //其他初始化
+              cout << "InitRest" << endl;
+          }
+
+          int type {1};  //成员初始化
+          char name {'a'};
+    
+      };
+
+    #+END_SRC
+
+    在 Info(int)和 Info(char)的初始化列表位置，调用了基准版本的构造函数 Info()。
+    我们称在初始化列表中调用“基准版本”的构造函数为委派构造函数，而被调用的“基准版本”
+    则为目标构造函数。
+    在 C++11 中，所谓委派构造，就是指委派函数将构造的任务委派给了目标构造函数来完成
+    这样的一种类构造的方式。
+    构造函数不能同时委派和使用初始化列表，Info(int i) : Info(), type(i) {}就是
+    错误的做法。可改变目标构造函数，使得委派构造函数依然可以在初始列表中初始化所有成员。
+    
+    #+BEGIN_SRC c++
+      #include <iostream>
+      using namespace std;
+
+      class Info {
+        public:
+          Info() : Info(1, 'a') {
+          }
+
+          Info(int i) : Info(i, 'a') { // 委派Info()
+              cout << "i = " << i << endl;
+          }
+
+          Info(char e) : Info(1, e) { // 委派Info()
+              cout << "e=" << e << endl;
+          }
+
+        private:
+          Info(int i, char e) : type(i), name(e) {
+              // 其他初始化语句
+          }
+          int type {1};  //成员初始化
+          char name {'a'};
+    
+      };
+
+    #+END_SRC
+
+    在有多个委派构造函数的时候，可能会出现链状的委托构造，有些构造函数即使委托构造函数，
+    也是目标构造函数。
+    #+BEGIN_SRC c++
+      #include <iostream>
+      using namespace std;
+
+      class Info {
+        public:
+          Info() : Info(1) { // 委托构造函数
+          }
+
+          Info(int i) : Info(i, 'a') { 
+              cout << "i = " << i << endl;
+          }
+
+          Info(char e) : Info(1, e) { // 即使目标构造函数，也是委托构造函数
+              cout << "e=" << e << endl;
+          }
+
+        private:
+          Info(int i, char e) : type(i), name(e) {
+              // 其他初始化语句
+          }
+          int type {1};  //成员初始化
+          char name {'a'};
+    
+      };
+
+    #+END_SRC
+    
+    在委托构造的链状关系中，不能形成委托环，委托环会相互依赖构造函数，导致编译失败。
+
+    在异常处理方面，如果在委派构造函数中使用 try，那么从目标构造函数产生的异常，都可以
+    在委派构造函数中被捕捉到。
+
+    #+BEGIN_SRC c++
+      #include <iostream>
+
+      using namespace std;
+
+      class DCException {
+        public:
+          DCException(double d)
+                  try : DCException(1, d) {
+                      cout << "run the body" << endl;
+                  }
+          catch (...) {
+              cout << "caught exception" << endl;
+          }
+
+        private:
+          DCException(int i, double d) : type(i), data(d) {
+              cout << "going to throw" << endl;
+              throw 0;
+          }
+
+          int type;
+          double data;
+
+      };
+
+      int main() {
+
+          DCException(4.5);
+
+      }
+
+    #+END_SRC

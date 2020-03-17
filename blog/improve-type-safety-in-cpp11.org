@@ -1,0 +1,12 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: C++11 的类型安全
+#+DATE: 2017-08-24
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++ C++11
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+
+[[file:~/Blog/images/提高类型安全.svg]]

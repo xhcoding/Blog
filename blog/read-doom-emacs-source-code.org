@@ -1,0 +1,126 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: Doom Emacs 源码阅读
+#+DATE: 2018-03-29
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Emacs
+#+HUGO_CATEGORIES: Emacs
+#+HUGO_DRAFT: false
+
+* 前言
+最近把我的 emacs 配置转移到了 doom emacs 下，简单的读了下 doom emacs 的源码。
+#+BEGIN_EXPORT html
+<!--more-->
+#+END_EXPORT
+* core
+** core.el
+*** 定义变量
+   - 定义 doom 相关变量
+   - 设置默认编码为 utf-8
+   - 设置默认的全局变量，如自动保存，自动备份等
+   - 设置一些文件的保存路径
+   - 载入 custom.el
+   - 定义两个 hook 变量，doom-init-hook, doom-post-init-hook
+
+*** 初始化
+    - 设置垃圾回收相关变量，减少启动时间
+    - 载入 core 的各种设置
+    - 定义几个 hook 函数
+    - 优化 emacs 的默认行为
+
+** core-packages.el
+   
+   - 这个是 doom-emacs 的 package 管理系统，它会读取每个 Moudle 下的 packages.el
+     文件（其中一个在 core 目录下），packages.el 文件中的 package!声明了需要
+     安装的 package。
+   - 定义 Bootstrap API，Moudle API
+   - 定义 Moudle 配置宏
+   - 定义 Moudle package 宏
+   - 定义一些交互命令
+
+** core-lib.el
+   定义一些 doom 使用的函数和宏
+
+** core-os.el
+   操作系统相关的设置，如剪切板，Mac 系统的一些变量设置
+
+** core-ui.el
+   ui 相关的设置
+
+   - 设置了很多 ui 相关的变量
+   - 定义几个设置 modeline 的宏
+   - 定义几个 ui 相关的插件：all-the-icons,fringe-helper,rainbow-delimiters 等
+   - 设置内置 package 的一些变量
+   - 自定义一些 ui 相关的 hook
+   - 行号设置
+   - 主题和字体设置
+   - 初始化 ui
+
+** core-editor.el
+   编辑相关的设置
+
+   - 一些默认变量的设置。
+   - ediff 的设置
+   - 大文件的检查，以特殊的方法打开，避免影响性能
+   - 内置功能的设置，如：auto-revert,recentf
+   - editconfig pakcage 的设置
+   - smartparens package 的设置
+   - undo-tree package 的设置
+   - 其他的 package 的设置：expand-region,avy, helpful 等
+
+** core-projects.el
+   project 相关设置
+
+   - projectile package 的设置
+   - 定义一些 API
+   - 定义一些 Project 相关的宏
+
+** core-keybinds.el
+   定义 keybinds
+   
+   - leader key 为 "SPC"
+   - 定义一个 escape hook，C-g 会触发
+   - whick-key package 的设置
+   - hydra package 的设置
+   - 定义 map!宏用于键绑定
+
+** test/*
+   定义一些测试相关的东西
+
+** autoload/*
+   定义许多延迟加载的函数。
+
+* init.el
+  1. 加载 core 中的内容
+  2. 加载各个模块
+
+* moudle
+  各个模块的代码。模块分为几种类型：
+  - :feature 带来更好的 emacs 功能，如：popup，evil
+  - :completing 补全相关，如：company，ivy
+  - :ui ui 相关，如：doom-modeline
+  - :tools 一些小工具，如：dired，neotree
+  - :lang 各种语言支持，如：Java，Python
+  - :app emacs 的其他功能，如：RSS，email
+  - :config emacs 配置模块，如：binds 提供键绑定
+  - :private 自定义的模块
+
+** 组成
+*** config.el
+    Moudle 的核心，moudle 激活时就会加载
+
+*** init.el
+    在 doom core 初始化时载入
+
+*** packages.el
+    Moudle 需要的所有 package
+
+*** autoload.el (or autoload/*)
+    模块所有延迟加载的函数
+
+*** +*.el
+    额外的配置文件，不会自动载入
+
+*** test/*.el
+    模块的单元测试

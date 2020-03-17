@@ -4,8 +4,8 @@
 #+DATE: 2019-12-26
 #+AUTHOR:
 #+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
-#+HUGO_TAGS: tool
-#+HUGO_CATEGORIES: tips
+#+HUGO_TAGS: Tool
+#+HUGO_CATEGORIES: Tools
 #+HUGO_DRAFT: false
 
 * Linux

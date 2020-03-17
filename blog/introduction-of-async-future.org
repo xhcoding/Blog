@@ -1,0 +1,111 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: std::async 和 std::future
+#+DATE: 2019-08-27
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++ C++11
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+* 一次性事件
+当我们在候车时，我们会通过一些其他的方式打发时间，但是我们的根本目的是等待火车发
+车。这种等待是一次性的，车来了，我们走了。我们会再一次等车，但是两次等车没有关联。
+
+在 C++ 的并发模型中，这样的一次性事件叫做期望值 (future) ，future 关联到指定的事
+件并等待它完成后返回。事件一般在另一个线程发生，所以当前线程等待事件时也可以做一
+些其他的事。
+
+C++ 标准库中定义了两种 future 的实现： =std::future= 和 =std::shared_future= 。
+区别在于前一个只能关联一个事件，后一个可以关联多个事件。
+
+* 异步任务
+
+要让事件发生在另一个线程，使用 =std::async= ，它可以启动一个异步任务并通过
+=future= 获取结果。看下面的代码。
+
+#+BEGIN_SRC c++
+#include <future>
+#include <thread>
+#include <iostream>
+#include <chrono>
+
+int main() {
+    std::future<int> answer = std::async([](){
+        std::cout << "async pid: " << std::this_thread::get_id() << std::endl; // 打印 async 启动线程的 id
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // 停止三秒
+        std::cout << "async complete" << std::endl; // 完成
+        return 42; // 返回一个值
+    });
+
+    // 主线程做一些事
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // 停留两秒
+    std::cout << "main pid: " << std::this_thread::get_id() << std::endl; // 打印主线程 id
+
+    std::cout << "the answer is: \n" << answer.get() << std::endl; // 我们等待的事件，并取得返回值
+    std::cout << "main finish" << std::endl;
+    return 0;
+}
+
+#+END_SRC
+
+下面是输出结果：
+ 
+#+BEGIN_QUOTE
+async pid: 140648718300928
+main pid: 140648718305088
+the answer is: 
+async complete
+42
+main finish
+#+END_QUOTE
+
+=future<int>= 关联一个 =std::async= 事件， =int= 表示返回值是 =int= ，上面直接传
+入一个 lambda ，也可以传一个函数和对应的参数。在这种情况下， =future= 关联到
+=async= 起的事件时，事件马上发生，最后 =future= 在它期望得到结果的地方会阻塞，直
+到取得结果。
+
+=std::async= 第一个参数可以指定一个值，表示 =std::async= 启动线程执行事件的时间。
+值为 =std::launch::async= 表示事件在独立的线程执行， =std::async= 的默认值就是这
+个，即上面那种情况。
+值为 =std::launch::deferred= 表示事件延迟到 =future= 的 =get= 或者 =wait= 调用时
+执行。
+
+#+BEGIN_SRC c++
+#include <future>
+#include <thread>
+#include <iostream>
+#include <chrono>
+
+int main() {
+    std::future<int> answer = std::async(std::launch::deferred, [](){ // 不同
+        std::cout << "async pid: " << std::this_thread::get_id() << std::endl; // 打印 async 启动线程的 id
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // 停止三秒
+        std::cout << "async complete" << std::endl; // 完成
+        return 42; // 返回一个值
+    });
+
+    // 主线程做一些事
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // 停留两秒
+    std::cout << "main pid: " << std::this_thread::get_id() << std::endl; // 打印主线程 id
+
+    std::cout << "the answer is: \n" << answer.get() << std::endl; // 我们等待的事件，并取得返回值
+    std::cout << "main finish" << std::endl;
+    return 0;
+}
+
+#+END_SRC
+
+#+BEGIN_QUOTE
+main pid: 140590448473920
+the answer is: 
+async pid: 140590448473920
+async complete
+42
+main finish
+#+END_QUOTE
+
+从上面的结果就可以看出， =std::async= 的时间到 =get= 调用时才执行。
+
+如果不需要返回值，可以使用 =future<void>=
+

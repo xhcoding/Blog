@@ -1,0 +1,12 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: C++11 中的语法糖
+#+DATE: 2017-08-24
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++ C++11
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+
+[[file:~/Blog/images/新手易学-老兵易用.svg]]

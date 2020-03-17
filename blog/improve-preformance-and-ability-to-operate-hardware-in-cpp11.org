@@ -1,0 +1,14 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 提高性能及操作硬件的能力
+#+DATE: 2017-09-05
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++ C++11
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+
+*如果图片看不清，请在新的标签页单独打开图片*
+
+[[file:~/Blog/images/提高性能及操作硬件的能力.svg]]

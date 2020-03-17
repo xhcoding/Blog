@@ -4,8 +4,8 @@
 #+DATE: 2019-12-27
 #+AUTHOR:
 #+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
-#+HUGO_TAGS: 
-#+HUGO_CATEGORIES: 
+#+HUGO_TAGS: Tools
+#+HUGO_CATEGORIES: Tools
 #+HUGO_DRAFT: false
 
 * 批量删除本地分支

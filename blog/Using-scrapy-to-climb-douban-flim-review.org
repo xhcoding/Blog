@@ -1,0 +1,291 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 用 Scrapy 爬取豆瓣电影评论
+#+DATE: 2019-03-20
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Python
+#+HUGO_CATEGORIES: Python
+#+HUGO_DRAFT: false
+
+
+* 前言
+最近需要做一个通过神经网络（LSTM）做情感分析的项目。第一步数据集就难住了，英文可
+以用 IMDB 的评论数据集，但是没有找到好用的中文数据集，就想着自己用爬虫爬一些数据。
+考虑了一下，决定用豆瓣的影评作为原始数据，一方面是和 IMDB 数据集类似，处理数据时
+可以借鉴一下，而且豆瓣影评带一个分数，可以方便标记数据，不用人工标记，但是得针对
+性的选一些电影的影评。
+
+以前也写过爬虫，但是用得是最基本的 *urllib* 库，这次为了更好更快的爬取数据，决定学
+习 *Scrapy* 这个爬虫框架。本文开始会介绍 *Scrapy* 的基本的用法，然后给出爬虫代码，
+最后我会把我爬去的数据集预处理后分享出来。
+
+#+HTML:<!-- more --> 
+
+* Scrapy 使用
+** 创建一个 Scrapy 工程
+首先安装 Scrapy =pip install scrapy=
+
+选择一个喜欢的目录，运行下面的命令，Scrapy 会根据模板创建一个 =douban= 工程。
+#+BEGIN_SRC shell
+scrapy startproject douban
+#+END_SRC
+
+目录结构如下：
+#+BEGIN_QUOTE
+douban/
+scrapy.cfg            # 部署的配置文件
+
+douban/             # 工程的 Python 模块，在里面写代码
+__init__.py
+
+items.py          
+
+middlewares.py    
+
+pipelines.py     
+
+settings.py     
+
+spiders/         
+__init__.py
+#+END_QUOTE
+
+** 第一个爬虫
+爬虫是一个继承自 =scrapy.Spider= 的类，Scrapy 通过定义的类爬取数据。
+文件应该保存在 /spiders/ 文件夹里。下面是一个例子，爬取豆瓣首页内容：
+
+#+BEGIN_SRC python
+# -*- coding: utf-8 -*-
+
+import scrapy
+
+
+class DoubanIndexSpider(scrapy.Spider):
+    name = "DoubanIndex"
+
+    def start_requests(self):
+        urls = ["https://www.douban.com"]
+
+        for url in urls:
+            yield scrapy.Request(url=url, callback=self.parse)
+
+    def parse(self, response):
+        with open("douban_index.html", "wb") as f:
+            f.write(response.body)
+#+END_SRC
+
+=name= 是一个爬虫的名字，在同一个工程内，它应该是独一无二的。
+
+=start_requests= 请求发起请求
+=parse= 解析响应数据
+
+** 运行爬虫
+到工程的根目录运行下面的命令：
+#+BEGIN_SRC shell
+scrapy crawl DoubanIndex
+#+END_SRC
+
+第一次运行爬不了，修改 =settings.py= 中的 =User-Agent= 为：
+#+begin_quote
+Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36
+#+end_quote
+
+成功把豆瓣首页爬下来保存到 =douban_index.html=
+
+可以不写 =start_requests= 方法，用 =start_urls= 代替
+#+BEGIN_SRC python
+
+#+END_SRC
+
+** 交互式解析数据
+使用 =Scrapy shell= 方法可以交互式的解析数据，类似 IPython，在学习或者分析网页时
+非常方便：
+#+BEGIN_SRC shell
+scrapy shell "https://www.douban.com/"
+#+END_SRC
+
+可以使用各种选择器对 =response= 中的内容进行选择
+
+#+BEGIN_SRC shell
+response.css(".lnk-book").get()
+response.css("div").getall()
+#+END_SRC
+
+** 定义 Item
+Item 是保存爬取到的数据的容器。其使用方法和 python 字典类似， 并且提供了额外保护机
+制来避免拼写错误导致的未定义字段错误。
+
+我们在 items.py 内定义我们需要保存的数据。
+#+BEGIN_SRC python
+import scrapy
+
+class DoubanIndexItem(scrapy.item):
+    url = scrapy.Field()
+
+#+END_SRC
+
+上面我们只保存 url
+
+** 在代码中解析数据
+#+BEGIN_SRC python
+# -*- coding: utf-8 -*-
+
+import scrapy
+from douban.items import DoubanIndexItem
+
+
+class DoubanIndexSpider(scrapy.Spider):
+    name = "DoubanIndex"
+    start_urls = ["https://douban.com"]
+
+    def parse(self, response):
+        # 解析豆瓣首页的 nav-bar 的link url
+        for li in response.css("div#anony-nav div.anony-nav-links ul li"):
+            item = DoubanIndexItem()
+            item["url"] = li.css("a::attr(href)").get()
+            
+            yield item # 返回item
+#+END_SRC
+
+将输出保存在文件中。
+#+BEGIN_SRC shell
+scrapy crawl DoubanIndex -o nav-link.json
+#+END_SRC
+
+运行后，/nav-link.json/ 的内容如下：
+#+BEGIN_QUOTE
+[
+{"url": "https://book.douban.com"},
+{"url": "https://movie.douban.com"},
+{"url": "https://music.douban.com"},
+{"url": "https://www.douban.com/group/"},
+{"url": "https://www.douban.com/location/"},
+{"url": "https://douban.fm"},
+{"url": "https://time.douban.com/?dt_time_source=douban-web_anonymous_index_top_nav"},
+{"url": "https://market.douban.com?utm_campaign=anonymous_top_nav&utm_source=douban&utm_medium=pc_web"}
+
+#+END_QUOTE
+
+** 跟踪页面的链接
+上一步已经获取了链接，下一部我们爬链接里的内容，即动态的添加链接。
+
+#+BEGIN_SRC python
+# -*- coding: utf-8 -*-
+
+import scrapy
+
+
+class DoubanIndexSpider(scrapy.Spider):
+    name = "DoubanIndex"
+    start_urls = ["https://www.douban.com/"]
+
+    def parse(self, response):
+        # 解析豆瓣首页的 nav-bar 的link url
+        urls = []
+        for li in response.css("div#anony-nav div.anony-nav-links ul li"):
+            url = li.css("a::attr(href)").get()
+            urls.append(url)
+            yield {
+                "url": response.url
+            }
+        for url in urls:
+            if url is not None:
+                next_page = response.urljoin(url)
+                yield scrapy.Request(next_page, callback=self.parse)
+
+#+END_SRC
+
+使用 =response.follow= 更加方便，可以直接传入 =a= 标签。
+
+#+BEGIN_SRC python
+# -*- coding: utf-8 -*-
+
+import scrapy
+
+class DoubanIndexSpider(scrapy.Spider):
+    name = "DoubanIndex"
+    start_urls = ["https://www.douban.com/"]
+
+    def parse(self, response):
+        for li in response.css("div#anony-nav div.anony-nav-links ul li"):
+            a = li.css("a")[0]
+            yield response.follow(a, callback=self.parse)
+
+#+END_SRC
+
+上面这些内容足够我完成爬虫任务了，使用框架就是这么简单。
+* 爬取豆瓣电影评论
+** 明确目标
+我需要爬豆瓣电影的评论，评论附带一个五星的评分。把 12 星看做负面情绪，3星看做中性，
+45 星看做正面情绪。
+
+我们先爬取所有电影的 ID, 然后通过分层加随机抽样的方法选出*100*部电影爬取该电影的评论。
+每一部的每一种情绪分别爬取*100*条。
+
+保存方式：使用文本文件保存，三种情绪分为三个文件夹：每个文件夹一个 txt 文件保存
+一条评论，文件名为 id_rate.txt，id 为独一无二的数字。
+
+** Pipeline
+上面要将爬取的评论放到不同的文件里，可以用 scrapy 的 pipeline 机制，scrapy 将爬
+取的 Item 送到 pipeline。
+在 pipelines.py 文件里定义 pipeline。
+#+BEGIN_SRC python
+import os
+
+class DoubanMovieCommentPipeline(object):
+    index_pos = 1
+    index_nosup = 1
+    index_neg = 1
+    
+    def create_dir(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+    
+    def process_item(self, item, spider):
+        if item["short"] is None or len(item["short"]) <= 10:
+            return item
+        path = "doubancomment/" + item["type"]
+        if item["type"] == "pos":
+            filepath = path + "/" + str(self.index_pos) + "_" + item["rate"] + ".txt"
+            self.index_pos += 1
+        elif item["type"] == "nosup":
+             filepath = path + "/" + str(self.index_nosup) + "_" + item["rate"] + ".txt"
+             self.index_nosup += 1
+        else:
+            filepath = path + "/" + str(self.index_neg) + "_" + item["rate"] + ".txt"
+            self.index_neg += 1
+        self.create_dir(path)
+        
+        with open(filepath, "wb") as f:
+            f.write(item["short"].encode("utf-8"))
+        
+        return item
+
+#+END_SRC
+
+=process_item= 负责处理传过来的 item。
+在 =settings.py= 里定义 =pipeline= 顺序。
+#+BEGIN_SRC python
+ITEM_PIPELINES = {"douban.pipelines.DoubanMovieCommentPipeline": 300}
+
+#+END_SRC
+
+可以在里面定义多个 pipeline，item 会按照定义的顺序传到每个 pipeline 处理。
+** 一些设置
+在 =settings.py= 设值一些选项
+#+BEGIN_SRC python
+# 不遵守 robots.txt  
+ROBOTSTXT_OBEY = False
+
+# 每一次下载页面时延迟，防止被封
+DOWNLOAD_DELAY = 1.5
+
+# 不使用cookie
+COOKIES_ENABLED = False
+
+# 设值 user-agent
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36"
+#+END_SRC
+
+完整代码：[[https://github.com/xhcoding/recipes/tree/master/Python/Spider/douban][github]]

@@ -1,0 +1,45 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: Linux 常用操作
+#+DATE: 2017-10-04
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Linux
+#+HUGO_CATEGORIES: Linux
+#+HUGO_DRAFT: False
+
+* 批量重命名文件
+    我们需要批量的按照某种规则重命名文件时：
+    #+BEGIN_SRC shell
+      # 把一系列png图片按照序号命名，可以使用sed或grep进行更加精确的查找命名
+      ls *.png | awk 'BEGIN{count=0}{count++;system("mv "$1" newname-"count".png")}'
+    #+END_SRC
+
+
+    *不断增加中...*
+
+* 让 Linux Cpu 占用达到 100%
+    #+BEGIN_SRC shell
+      for i in `seq 1 $(cat /proc/cpuinfo |grep "physical id" |wc -l)`; do dd if=/dev/zero of=/dev/null & done
+    #+END_SRC
+
+* 删除手动编译安装的 clang
+#+BEGIN_SRC shell
+xargs rm < install_manifest.txt
+#+END_SRC
+
+* install all package from arch-package
+#+BEGIN_SRC shell
+cat arch-package.list | awk '{system("pacman -S --needed --noconfirm "$1"")}'
+#+END_SRC
+
+* 给文件添加协议
+** MIT
+#+BEGIN_SRC shell
+sed -i '1i\/* Copyright (c) 2018 xhcoding, <xhcoding@163.com>\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the "Software"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n==============================================================================*\/\n' *.cc *.h
+#+END_SRC
+
+** Apache
+#+BEGIN_SRC shell
+sed -i '1i\/* Copyright 2017-2018 xhcoding, <xhcoding@163.com>\n\nLicensed under the Apache License, Version 2.0 (the "License");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n\  http://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an "AS IS" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n==============================================================================*\/\n' *.cc *.h
+#+END_SRC

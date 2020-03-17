@@ -1,0 +1,5 @@
+fullbody: 
+@startuml
+School "1"*-- "1"HeadMaster
+School "1"*-- "1..*"Student
+@enduml

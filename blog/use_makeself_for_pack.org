@@ -4,8 +4,8 @@
 #+DATE: 2020-01-15
 #+AUTHOR:
 #+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
-#+HUGO_TAGS: 
-#+HUGO_CATEGORIES: 
+#+HUGO_TAGS: Linux
+#+HUGO_CATEGORIES: Linux 
 #+HUGO_DRAFT: false
 
 * 安装包的格式

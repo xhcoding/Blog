@@ -1,0 +1,91 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: emacs 启动过程
+#+DATE: 2018-08-18
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Emacs
+#+HUGO_CATEGORIES: Emacs
+#+HUGO_DRAFT: false
+
+
+* 启动过程总结
+  emacs 启动在 lisp 源码里的顶级目录中的 startup.el 文件，如
+  #+BEGIN_QUOTE
+  /usr/share/emacs/26.1/lisp/startup.el
+  #+END_QUOTE
+#+HTML:<!-- more --> 
+  1. 运行 load-path 里面每个目录中的 subdirs.el 文件，递归的把所有把子目录添加到路径中。
+     
+  2. 运行 load-path 中找到的用户创建的 leim-list.el 文件，Emacs 自带的忽略掉。
+     这个文件用于注册输入法。 
+ 
+  3. 设置~before-init-time~变量的时间为~current-time~目前时间，~after-init-time~为~nil~
+     
+  4. 设置语言环境和终端的编码系统。
+  
+  5. 解析命令行参数。
+
+  6. 如果不是以 bacth 模式运行，Emacs 初始化窗口系统，[[https://www.gnu.org/software/emacs/manual/html_node/elisp/Window-Systems.html#Window-Systems][initital-window-system]]变量被指定。
+     这个变量被指定后，就会在 term 目录下找到匹配的文件来初始化窗口。
+  
+  7. 运行~before-init-hook~
+
+  8. 如果不是以 batch 模式或 daemon 模式运行，Emacs 会创建一个图形化的 Frame。
+     
+  9. 初始化 Frame 的外观。如果需要，设置菜单栏和工具栏。
+
+  10. 通过~custom-reevaluate-setting~重新初始化~custom-delayed-init-variables~列表中的变量。
+      这些变量都是预先加载的用户选项，默认值取决于运行时，而不是构建时。
+
+  11. 如果启动选项里面没有~-Q~或~no-site-file~。Emacs 会载入存在的 site-start。
+      
+  12. 如果启动选项里面没有~-Q~, ~-q~或~--batch~，Emacs 会加载用户的 init 文件，即我们自己写的配置。
+      如果~-u~被指定，Emacs 会在用户的 home 目录寻找 init 文件
+
+  13. 如果启动选项里面没有~-q~，~-Q~或~--batch~被指定，或者~inhibit-default-init~没有被设为~nil~，
+      加载存在的~default~库文件。
+
+  14. 如果启动选项里没有~--batch~且~abbrev-file-name~指定的 abbrev 文件存在且可读时，加载该文件。
+
+  15. 用~package-initialize~函数激活已经安装的 package。但是如果~package-enable-at-startup~被设为 nil，
+      或者启动选项里有~-q~, ~-Q~，~--batch~，Emacs 不会激活 package，用户必须显示的调用 package-initialize（
+      用~--funcall~或者写在 init 文件里。
+
+  16. 设置~after-init-time~为目前的时间，结合~before-init-time~算出花了多少时间。
+      
+  17. 运行~after-init-hook~。
+
+  18. 设置~*scratch~ buffer 的 major mode 为 initial-major-mode 的值。
+
+  19. 如果以文本终端启动，且启动选项里没有~--batch~或~term-file-prefix~的值不为 nil，加载终端指定的库文件。
+
+  20. 如果~inhibit-startup-echo-area-messaeg~为 nil，显示初始化的信息。
+
+  21. 处理前面没有处理的命令行参数。
+
+  22. 如果以~--batch~启动，emacs 在此时退出。
+
+  23. 如果~*scratch*~ Buffer 存在且为空，插入~substitute-command-keys initial-scratch-message~变量中的内容。
+
+  24. 如果~initial-choice-buffer~是一个字符串，Emacs 用这个字符串作为名字打开对应的文件名或者文件目录；
+      如果是一个函数，他不带参数的调用该函数，函数的返回值作为一个 buffer 被选择；
+      如果启动选项带有一个文件名，这个文件被打开，然后显示在~initial-choice-buffer~的旁边；
+      如果启动选项带有多个文件名，所有的文件都会被打开，然后~*Buffer List*~ Buffer 显示在
+      ~initial-choice-buffer~的旁边。
+
+  25. 运行~emacs-startup-hook~
+
+  26. 调用~frame-notice-user-settings~，使在 init 文件中设置的 frame 参数生效。
+      主要是~initial-frame-alist~，~window-system-default-frame-alist~，
+      ~default-frame-alist~，优先级递减
+
+  27. 运行~window-setup-hook~
+
+  28. 显示默认的启动界面，包括版权信息和基本的 Emacs 用法。如果~inhibit-startup-screen~和
+      ~initial-choice-buffer~不为 nil，或者启动参数带有~-Q~或~--no-splash~时不显示。
+
+  29. 如果 daemon 被要求，调用~start-server~函数。
+
+  30. 如果通过X会话管理器启动，调用~emacs-session-restore~。
+

@@ -1,0 +1,187 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 数据库连接操作
+#+DATE: 2019-03-05
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: CS
+#+HUGO_CATEGORIES: CS
+#+HUGO_DRAFT: false
+
+
+* 前言
+在介绍一下的内容之前，先介绍两个表：R和 S，内容如下：
+
+表 R
+| A  | B  | C |
+|----+----+---|
+| a1 | b1 | 1 |
+| a2 | b2 | 2 |
+| a3 | b2 | 3 |
+| a4 | b3 | 4 |
+
+[[file:/home/xhcoding/Blog/images/2018-11-02-sql连接知识_2018212545.png]]
+
+表 S
+| B  | D |
+|----+---|
+| b1 | 5 |
+| b2 | 6 |
+| b4 | 7 |
+
+[[file:/home/xhcoding/Blog/images/2018-11-02-sql连接知识_2018212635.png]] 
+
+* 笛卡尔积
+#+HTML:<!-- more --> 
+两个表的笛卡尔积定义为: 
+\begin{equation}
+R \times S = \{<t,g> \mid t \in R \quad AND \quad g \in S\}
+\end{equation}
+即把两个表联系起来，列数为两表之和，行数为两表之积。
+如上面的两个表做笛卡尔积得到下面的表
+
+| A  | B  | C | B  | D |
+|----+----+---+----+---|
+| a1 | b1 | 1 | b1 | 5 |
+| a1 | b1 | 1 | b2 | 6 |
+| a1 | b1 | 1 | b4 | 7 |
+| a2 | b2 | 2 | b1 | 5 |
+| a2 | b2 | 2 | b2 | 6 |
+| a2 | b2 | 2 | b4 | 7 |
+| a3 | b2 | 3 | b1 | 5 |
+| a3 | b2 | 3 | b2 | 6 |
+| a3 | b2 | 3 | b4 | 7 |
+| a4 | b3 | 4 | b1 | 5 |
+| a4 | b3 | 4 | b2 | 6 |
+| a4 | b3 | 4 | b4 | 7 |
+
+笛卡尔积的 sql 语句如下：
+#+BEGIN_SRC sql
+select * from R as r, S as s;
+#+END_SRC
+
+[[file:/home/xhcoding/Blog/images/2018-11-02-sql连接知识_2018213900.png]] 
+
+* 连接
+连接操作定义如下：
+\begin{equation}
+R\bowtie_{<连接条件>}S = \sigma_{<连接条件>}(R \times S)
+\end{equation}
+连接即先做笛卡尔积，再在笛卡尔积生成的表上根据连接条件进行过滤。
+笛卡尔积包含两个表之间的所有组合，连接只包含满足连接条件的组合。
+没有连接条件的连接就是笛卡尔积。
+
+连接条件为两关系中对应属性的比较，对应的属性不一定同名，但是类型要一样。
+连接条件的普遍形式为:条件 A and 条件 2 and 条件 3 ... 条件 k
+
+其中每个条件的普遍形式为： $A_{i} \theta B_{j}$，$\theta \in \{=, <, \leq, >, \ge, \ne\}$
+
+* 各种连接的概念
+
+** 内连接
+
+向上面用 $==,<, \leq, >, \ge, \ne$ 这种比较运算符判断条件的叫内连接。
+
+
+即内连接包括等值连接，不等值连接，自然连接（可以看做特殊的等值连接）。
+
+*** 等值连接
+如果所有的条件的$\theta$都为$\equal$，则这种连接称为等值连接。
+
+如连接 R 和 S 中 B 列相等的值。
+#+BEGIN_SRC sql
+select * from S join R on S.B = R.B;
+#+END_SRC
+
+[[file:/home/xhcoding/Blog/images/2018-11-02-sql连接知识_2018220611.png]] 
+
+*注意：* 
+#+BEGIN_SRC sql
+select * from S join R;
+
+select * from S, R;
+#+END_SRC
+上面两句是等价的。两者都可以看成是两表之间的笛卡尔积。
+
+*** 自然连接
+在等值连接的结果中，对应属性的值是相同的，没有必要重复列出，只在两个属性之间取一
+个，这种消除冗余属性的等值连接称为自然连接。
+
+如 R 和 S 的自然连接会去除重复的 B 这一列，并且比较 B 相等的值。
+R 和 S 自然连接的结果：
+
+| B  | D | A  | C |
+|----+---+----+---|
+| b1 | 5 | a1 | 1 |
+| b2 | 6 | a2 | 2 |
+| b2 | 6 | a3 | 3 |
+
+sql 语句如下:
+#+BEGIN_SRC sql
+select * from S natural join R;
+#+END_SRC
+
+[[file:/home/xhcoding/Blog/images/2018-11-02-sql连接知识_2018220202.png]] 
+
+
+*** 不等值连接
+使用除了等号的其他运算符：$<, \leq, >, \ge, \ne$ 叫不等值连接
+
+** 外连接
+外连接是除了内连接的结果，还包括其中一个表或两个表的所有结果。具体理解看下面
+每一类的说明。
+
+外连接分为三类：左（外）连接，右（外）连接，全（外）连接。
+*** 左（外）连接（left join or left outer join)
+左连接会从左表返回所有的行，即使与右表没有匹配。
+
+如连接条件为 R.B=S.B 时的等值连接会返回三行，当为左连接时，
+如 R left join S，R 的 B=b3 这一行一会返回，即使 S 中没有 B=b3 这一行。
+由于 S 中没有 B=b3 这一行，S中的值就被赋值为 NULL（数据库不同，值可能不同）。
+
+#+BEGIN_SRC sql
+select * from R left join S on R.B = S.B;
+#+END_SRC
+
+[[file:/home/xhcoding/Blog/images/2018-11-02-sql连接知识_2018222126.png]] 
+
+从上图可以看到，右表中不匹配的值为 NULL
+
+*** 右（外）连接（right join or right outer join）
+右连接与左连接相反，右连接会从右表中返回所有行，即使与左表不匹配。
+
+直接看实例
+#+BEGIN_SRC sql
+select * from R right join S on R.B = S.B;
+#+END_SRC
+
+
+[[file:/home/xhcoding/Blog/images/2018-11-02-sql连接知识_2018222445.png]] 
+
+*** 左连接和右连接的联系
+相对的操作。直接看下面的代码
+#+BEGIN_SRC sql
+select * from R left join S on R.B = S.B;
+select * from S right join R on R.B = S.B;
+#+END_SRC
+上面两句结果相同，交换两表的位置，把左连接变为右连接。
+
+
+可以看到 S.B = b4 在 R 中没有，但是还是返回结果，R中的值设为 NULL。
+
+*** 全外连接（full join or full outer join）
+全连接即两表的左连接与右连接的并集。
+
+像 mariadb 没有全连接 full join 方法，就是用左连接并上右连接：left join union right join 
+#+BEGIN_SRC sql
+select * from R left join S on R.B = S.B 
+union 
+select * from R right join S on R.B = S.B;
+#+END_SRC
+
+[[file:/home/xhcoding/Blog/images/2018-11-02-sql连接知识_2018223150.png]] 
+
+** 其他
+交叉连接：网上有一些叫法，其实就是笛卡尔积，也是无条件连接。
+
+

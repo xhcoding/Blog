@@ -1,0 +1,99 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 类与类之间的关系－组合委托继承
+#+DATE: 2018-10-02
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+
+* 组合(Composition), has-a/n
+#+HTML:<!-- more -->
+#+BEGIN_SRC c++
+class HeadMaster {
+  int id
+};
+
+class Student {
+  int id;
+};
+
+class School {
+ private:
+  HeadMaster master;
+  Student students[10];
+};
+#+END_SRC
+上面表示一个学校有一个校长和 10 个学生。组合关系下类的大小为成员之和，如
+School 有 10 个 Student 大小，一个 HeadMaster 大小。
+
+对应的 UML 图如下
+#+begin_src plantuml :file ../images/class_composition.png :exports result
+School "1"*-- "1"HeadMaster
+School "1"*-- "1..*"Student
+#+end_src
+#+RESULTS:
+[[file:../images/class_composition.png]]
+
+Composition 构造函数由内到外。School 先调用 master 和 students 的
+构造函数，在调用自己的构造函数。编译器默认调用无参构造函数，如果要调用
+其他构造函数，需要显示声明。
+
+Composition 的析构函数调用顺序由外至内。
+* 委托(Delegation)，Composition by reference
+#+BEGIN_SRC c++
+class StringImpl {
+ public:
+  void do();
+ private:
+  int n;
+  char *s;
+};
+
+class String {
+ public:
+  void do();
+ private:
+  StringImpl *impl;
+};
+#+END_SRC
+一个类有另一个类的指针。
+
+impl 对应的对象和 String 对应的对象生命周期不同。String 可以作为外部的接口类，StringImpl
+作为一个具体的实现。如 B 中的 do 方法可以调用 A 中 do 的实现，这样可以
+方便在以后切换不同的实现。同时字符串的具体内容由 s 指向的位置，n可以作为一个引用计
+数，多个有相同字符串的 String 对象可以只有一份内存占用。
+这种方法有个术语叫*pImpl(pointer to implement)*。
+
+*Notes:* copy on write(写时复制技术) 。如果 String 类的 a，b，c 三个对象的字符串对象，他们的 impl 指
+针指向的是同一个 StringImpl 对象，当 b 对象要改变它的字符串内容时，impl 对象复制它本
+身得到 impl1，让 b 的 impl 指针指向新的 StringImpl 对象，即 impl1。b 对字符串的改变就不会
+影响到 a，c 对象。复制时注意 n 的变化。
+
+* 继承(Inheritance), is-a
+#+BEGIN_SRC c++
+class Player {
+ private:
+  string name;
+};
+class Admin : public Player{
+ private:
+  string permission;
+};
+#+END_SRC
+继承对应的 UML 图如下
+#+begin_src plantuml :file ../images/class_inheritance.png :exports result
+Player <|-- Admin
+#+end_src
+
+#+RESULTS:
+[[file:../images/class_inheritance.png]]
+
+继承的逻辑关系就是 is-a，如上面表示 Admin 是一个 Player，表示管理员也是一个玩家。
+
+Admin 类继承了 Player 类的所有成员，即 Admin 除了有它自己的成员 permission 外，还有Player的成员name
+从内存角度，子类的对象有父类的内容。
+
+构造函数由内到外，析构函数由外到内，析构函数必须是virtual的。

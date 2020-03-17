@@ -1,0 +1,359 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 正则表达式
+#+DATE: 2017-10-03
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: CS
+#+HUGO_CATEGORIES: CS
+#+HUGO_DRAFT: false
+
+
+* 基本语法
+** 普通字符组
+   字符组表示在同一位置可能出现的各种字符，写法是在一对方括号[]之间列出所有的可能字符。如：
+   #+BEGIN_SRC python
+   re.search("[0123456789]", str) != None
+   #+END_SRC
+   Python 使用上面代码判断 str 中是否包含 0-9 数字中的一个，如果有返回 MatchObject 对象，没有返回 None。
+   如果 str="3fas"，代码返回 MatchObject；如果 str="lkjl"，代码返回 None。其他语言使用如下：
+   #+BEGIN_SRC java :eval no
+  str.matches("[0123456789]");//匹配返回true，否则返回false
+   #+END_SRC
+   #+BEGIN_SRC php
+  preg_match("/[0123456789]/", str);//匹配返回1，不匹配返回0
+   #+END_SRC
+   #+BEGIN_SRC javascript
+      /[0123456789]/.test(str);
+   #+END_SRC
+
+   上面的代码测试 str 的某个子串是否匹配，如果测试整个 str 是否匹配，要在字符组前后加上^和$。
+   ^表示定位到字符串的起始位置，$表示定位到字符串的结尾位置。如：
+   #+BEGIN_SRC python
+  re.search("[0123456789]", "213")
+  re.search("[0123456789]", "a3467")# 只要字符串中有一个数字，就匹配
+  re.search("^[0123456789]", "54352fafad")#开始处是一个整数字符
+  re.search("[0123456789]$", "fada898")#结尾处要是一个整数字符
+  re.search("^[0123456789]$", "3423432")#整个字符串都是一个整数字符才匹配
+   #+END_SRC
+   字符的排列顺序并不影响字符组的功能。
+
+   正则表达式的范围表示法可以用[x-y]表示 x 到 y 整个范围内的字符，范围表示的顺序根据 ASCII 编码。
+   #+BEGIN_SRC python
+  re.search("[0-9]", "3") #匹配
+   #+END_SRC
+   不建议使用[0-z]统一表示数字，小写字母，大写字母。不容易理解。
+
+   可是使用\xhex 来表示一个字符，\x 是固定前缀，hex 是十六进制的数字，是字符对应的码值。
+   #+BEGIN_EXPORT html
+   <!--more-->
+   #+END_EXPORT
+** 元字符与转义
+   像上面的'-'不能匹配任何字符，表示范围，这类字符叫做元字符。字符组的'['和']'、
+   '^'、'$'都是元字符，他们都有着特殊的含义。如果想要匹配元字符，就需要转义，一般是'\'开头。
+   对于'-'可以让他紧挨着方括号表示普通字符，其他情况表示元字符。如[-0-9]，第一个横线表示普通字符。
+   #+BEGIN_SRC python
+  re.search("[0\\-9]")#把-转义成普通字符。
+  #使用两个斜线是因为在字符串中也有转义规则，斜线也需要转义
+   #+END_SRC
+
+   Python 提供了原生字符串：正则表达式完全等于原生字符串，不用考虑转义。原生字符串形式为 r"string"。
+   #+BEGIN_SRC python
+  r"^[0\-9]" == "^[0\\-9]"
+   #+END_SRC
+
+   如果字符组中出现闭方括号"]"，比如"[123]454", 就必须在他之前使用转义符。
+   "\[23123]"这种只需转义开方括号，不需要转义闭方括号。
+
+** 排除型字符组
+   在开方括号后使用"[^...]"来表示当前位置没有列出的字符。如"[^0-9]"表示匹配不是 0-9 的字符。
+   当"^"没有紧跟着方括号之后，就表示一个普通字符，而不是元字符。也可以转义成普通字符，但不推荐。
+   #+BEGIN_SRC python
+  re.search(r"^[^123]$", "^") != None # => 匹配
+  re.search(r"^[1^23]$", "^") != None # 匹配
+  re.search(r"^[\^123]$", "^") != None #匹配
+   #+END_SRC
+
+** 字符组简记法
+   对于[0-9]这样常用的字符组，有简单的表示方法。
+   | \d | 表示[0-9] d 代表 digit                     |
+   | \w | 表示[0-9a-zA-Z_]  w 表示 word              |
+   | \s | 表示[ \t\r\n\v\f]所有空白字符 s 表示 space |
+
+   #+BEGIN_SRC python
+  re.search(r"^\d$", "1") != None # => True
+  re.search(r"^\d$", "a") != None # => False
+
+  re.search(r"^\w$", "_") != None # => True
+
+  re.search(r"^\s$", " ") != None # => True
+
+   #+END_SRC
+   Note: \w include underline "_"
+
+   When this word is capital, as "\W", "\D","\S",
+   then its have opposite meaning.
+   r"[^\w]" == r"[\W]"
+   #+BEGIN_SRC python
+  re.search(r"^[\d]$", "8") != None # => True
+  re.search(r"^[\D]$", "a") != None # => False
+   #+END_SRC
+
+   When we use the special of complementary, we can get clever result.
+   "[\s\S]" match all character.
+
+** POSIX 字符組
+   POSIX 方括号表达式规定：如果要在字符组中表达"]"，紧跟在开放括号之后。
+   如果表达"-"，放在闭方括号之前。POSIX 的"\"不是用来转义的。
+   POSIX 字符组：当 locale(语言环境)为 ASCII 时的意义，如果为 Unicode 不同。
+   | POSIX 字符組 | 说明                     | ASCII  字符组                           | 等价的 PCRE 简记法 |
+   | [:alnum:]   | 字母字符和数字字符       | [a-zA-Z0-9]                             |                  |
+   | [:alpha:]   | 字母                     | [a-zA-Z]                                |                  |
+   | [:ASCII:]   | ASCII 字符                | [\x00-\x7F]                             |                  |
+   | [:blank:]   | 空格字符和制表符         | [ \t]                                   |                  |
+   | [:cntrl:]   | 控制字符                 | [\x00-\x1F\x7F]                         |                  |
+   | [:digit:]   | 数字字符                 | [0-9]                                   | \d               |
+   | [:graph:]   | 空白字符之外的字符       | [\x21-\x7E]                             |                  |
+   | [:lower:]   | 小写字符                 | [a-z]                                   |                  |
+   | [:print:]   | 可打印字符，包括空白字符 | [\x20-\x7E]                             |                  |
+   | [:punct:]   | 标点符号                 | [][!"#$%&'()*+,./:;<=>?@\^_`{ 竖线 }~-] |                  |
+   | [:space:]   | 空白字符                 | [ \t\r\n\v\f]                           | \s               |
+   | [:upper:]   | 大写字符                 | [A-Z]                                   |                  |
+   | [:word:]    | 字母字符                 | [a-zA-Z0-9]                             | \w               |
+   | [:xdigit:]  | 十六进制字符             | [A-Fa-f0-9]                             |                  |
+
+   POSIX 不能脱离方括号，Java、PHP、Ruby 支持 POSIX。
+
+* 量词
+** 一般形式
+   当我们匹配多个字符时，类似\d\d\d\d 匹配四个数字不方便，由此引入量词。
+
+   使用{n}表示某个字符出现 n 次，如\d{4}表示匹配连续出现四个数字
+   #+BEGIN_SRC python
+  re.search(r"^\d{4}$", "1234") != None # => True
+  re.search(r"^\d{4}$", "12A4") != None # =>False
+
+   #+END_SRC
+
+   使用{m,n}表示不确定长度，逗号后面绝对不能有空格。m是下限，n是上限，都是闭区间。
+   \d{4, 6}表示最短 4 个数字，最长 6 个数字。也可省略其中一边，表示至多(至少)。
+   | 量词   | 说明                         |
+   | {n}    | 之前的元素必须出现 n 次        |
+   | {m, n} | 元素最少出现 m 次，最多出现 n 次 |
+   | {m,}   | 最少出现 m 次，无上限          |
+   | {0, n} | 最多出现 n 次，或不出现(某些语言也可用{,n}，不推荐) |
+
+** 常用量词
+   常用的量词有"+", "?", "*"
+   | 常用量词 | {m,n}的等价形式 | 说明                             |
+   | \*       | {0,}            | 可能出现，也可能不出现，没有上限 |
+   | +        | {1,}            | 至少出现一次，没有上限           |
+   | ?        | {0,1}           | 出现一次或 0 次                    |
+   #+BEGIN_SRC python
+  print(re.search(r"^travell?er$", "traveller") != None)  # => True
+  print(re.search(r"^travell?er$", "traveler") != None)  # => True
+  print(re.search(r"^travell?er$", "traveer") != None)  # => True
+
+  # html应用
+  print(re.search(r"^<[^/][^>]*>$", "<body>") != None)  # open tag
+  print(re.search(r"^</[^>]+>$", "</h1>") != None)  # close tag
+  print(re.search(r"^<[^>]+/>$", "<img/>") != None)   # self-closing tag
+
+  print(re.search(r"^\"[^\"]*\"$", "\"fafdas\"") != None)
+
+   #+END_SRC
+
+** 数据提取
+   re.search()匹配成功返回一个 MatchObject 对象，调用 MatchObject.group(0)
+   得到匹配到的字符串。
+   re.findAll(pattern, string)返回一个字符数组，其中是所有匹配的文本。
+   #+BEGIN_SRC python
+  print(re.search(r"\d{6}", "erw123456fdsa").group(0));
+
+  print(re.findall(r"\d{6}", "dsfa123456_;+==5443dfasf345601"))
+   #+END_SRC
+
+** 点号
+   点号"."可以匹配任意字符，但是不能匹配换行符\n，如果非要匹配任意字符。
+   一是可指定单行匹配模式，或者使用自制通配符[\s\S]，[\d\D]，[\w\W]。
+   #+BEGIN_SRC python
+     print(re.search(r"^.$", "\n") != None)  # => False
+     # 单行模式
+     print(re.search(r"(?s)^.$", "\n") != None)  # => True
+     # 自制通配符
+     print(re.search(r"^[\s\S]$", "\n") != None)  # => True
+
+   #+END_SRC
+
+** 匹配优先量词
+   在拿不准是否要匹配时，优先尝试匹配，并记下这个状态，以备将来回溯。例：
+   对于".*"对字符串"quoted string"的匹配过程。一开始"匹配，然后匹配 q，
+   .*可以匹配它也可以不匹配。因为优先匹配的原因，所以.*匹配 q，记录下这个状态。
+   一直到最后.*匹配"，这时字符串没了，但是正则表达式中的"还没有匹配，所以查询
+   之前存的备用状态，看看能不能退回几步，照顾"的匹配。这个过程叫做回溯。应用：
+   #+BEGIN_SRC python
+     # 拆解Unix/Linux路径
+     print(re.search(r"^.*/", "/usr/local/bin/python").group(0))
+     # 拆解Windows路径
+     print(re.search(r"^.*\\", "C:\\Program Files\\Python3.5.0\\python.exe").group(0))
+   #+END_SRC
+** 忽略优先量词
+  不确定要匹配选择不匹配，在尝试后面的元素，如果尝试失败，再回溯，选择之前保存
+  的匹配状态。对于[\s\S]*来说，只需要把*改成*?，即[\s\S]*?。应用：
+  #+BEGIN_SRC python
+    # 提取c语言中的注释
+    print(re.search(r"//.*", "// comment line").group(0))
+    print(re.search(r"/\*[\s\S]*?\*/",
+  	"/* comment serval lines \n c program language*/").group(0))
+    # 提取超链接
+    print(re.search(r"<a\s[\s\S]+?</a>",
+                    "<a href=\"http://images.search.baidu/image\">Images</a>").group(0))
+  #+END_SRC
+
+** 量词的转义
+   | 量词  | 转义形式 |
+   | {n}   | \{n}     |
+   | {m,n} | \{m,n}   |
+   | {m,}  | \{m,}    |
+   | {,n}  | \{,n}    |
+   | \*    | \\*      |
+   | +     | \+       |
+   | \?    | \?       |
+   | \*?   | \\*?     |
+   | \+?   | \\+?     |
+   | ??    | \??      |
+   | .     | \.       |
+   |       |          |
+
+* 括号
+** 分组
+   使用括号可以把几个正则表达式作为一个整体。如：
+   \d{2}[0-9a-z]只出现一次或者不出现，我们可以用?，
+   但是\d{2}[0-9a-z]?只对[0-9a-z]有效，要想整体有效，
+   可以把它放到(...)里，(\d{2}[0-9a-z])?就表示一个子表达式。
+   括号的这种功能叫做分组。应用：
+   #+BEGIN_SRC python
+  # 身份证号码的准确匹配
+  idCardRegex = r"^[1-9]\d{14}(\d{2}[0-9x])?$"
+
+  print(re.search(idCardRegex, "123456789011111111").group(0))
+  print(re.search(idCardRegex, "123456789012345").group(0))
+  print(re.search(idCardRegex, "12345678901234567x").group(0))
+  #+END_SRC
+  有了分组就能准确匹配"长度只能是 m 或 n"。上面的身份证就是可能是 15 位或者 18 位。
+  
+  上面的匹配 html 的 open tag 会匹配到 self-closing tag，改进的方法就是使用括号。
+  #+BEGIN_SRC python
+    # 准确匹配open tag
+    openTagRegex = r"^<[^/]([^>]*[^/])?>$"
+
+    print(re.search(openTagRegex, "<u>").group(0))
+    print(re.search(openTagRegex, "<table>").group(0))
+    print(re.search(openTagRegex, "<u/>"))
+
+    # email匹配
+    emailRegex = r"^[-\w.]{0,64}@([-a-zA-Z0-9]{1,63}\.)*[-a-zA-Z0-9]{1,63}$"
+
+    print(re.search(emailRegex, "34234@gmail.com").group(0))
+    print(re.search(emailRegex, "34234@some-host.some.com").group(0))
+    print(re.search(emailRegex, "_fds34234@m-dsf.fds.fa.afdsf.dfasfs").group(0))
+    # 不匹配的情况
+    print(re.search(emailRegex, "34234@.somehost.com"))
+    print(re.search(emailRegex, "d9df&dfa@gmail.com"))
+  #+END_SRC
+  
+** 多选结构
+   前面使用表达式[1-9]\d{14}(\d{2}[0-9x])?匹配身份证号，思路是把 18 位号码
+   多出的三位"合并"到 15 位号码的表达式中。我们可以直接分情况处理。
+   15 位身份证号码：[1-9]\d{14};18 位身份证号码：[1-9]\d{14}\d{2}[0-9x]
+   我们可以使用括号的多选结构，他的形式是(...|...)，在括号里面的竖线分隔开
+   多个子表达式。这些子表达式也叫多选分支。在一个多选结构内，多选分支的数目
+   没有限制。在匹配时，整个多选结构被视为单个元素，只要其中某个子表达式能够
+   匹配，整个多选结构的匹配就成功；如果所有子表达式都不能匹配，则整个多选结构
+   的匹配失败。
+   所以上面的身份证匹配可以用两个分支。([1-9]\d{14} | [1-9]\d{14}\d{2}[0-9x])
+   #+BEGIN_SRC python
+     # 使用多选结构匹配身份证
+     idCardRegex = r"^([1-9]\d{14}|[1-9]\d{14}\d{2}[0-9x])$"
+     print(re.search(idCardRegex, "123456789012345").group(0))
+     print(re.search(idCardRegex, "12345678901234567x").group(0))
+   #+END_SRC
+
+   在匹配 ip 地址时，就是使用这种方法。下面直接给出分析表格：
+   | 如果是一位数，那么对数字没有限制                     | [0-9]       |
+   | 如果是两位数，那么对数字没有限制                     | [0-9]{2}    |
+   | 如果是三位数，第一位为 1,二三位没有限制               | 1[0-9][0-9] |
+   | 如果是三位数， 第一位为 2, 第二是 0-4,第三位没限制     | 2[0-4][0-9] |
+   | 如果是三位数， 第一位为 2, 第二位是 5, 第三位只能是 0-5 | 25[0-5]     |
+   把上面的几种情况用多选结构组合起来就可以正确的匹配 ip 地址。
+   #+BEGIN_SRC python
+     # 匹配ip地址
+     ipRegex = r"^(((00)?[0-9]|0?[0-9]{2}|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.?){4}$"
+     print(re.search(ipRegex, "127.0.0.1").group(0))
+     print(re.search(ipRegex, "192.168.1.1").group(0))
+     print(re.search(ipRegex, "002.121.045.065").group(0))
+     # 不匹配的情况
+     print(re.search(ipRegex, "256.0.34.44"))
+   #+END_SRC
+   注意：+ 多选分支并不等于字符组，虽然理论上可以完全用多选结构代替字符组。如：
+   [a|b|c]替换[abc]。
+   
+** 引用分组
+   使用括号过后，正则表达式会保存每个分组真正匹配的文本，等到匹配完成后，
+   通过 group(num)之类的方法"引用"分组在匹配时捕获的内容。其中 num 表示
+   对应的括号的编号，括号分组的编号是从左到右，从 1 开始。例如：
+   当我们匹配诸如 2017-12-13 这类日期时，要想提取出年，月，日的信息。
+   使用表达式(\d{4})-(\d{2})-(\d{2})，每个括号的分组编号是 1, 2, 3。
+   对于编号 0.他是默认存在的，对应整个表达式匹配的文本。
+   #+BEGIN_SRC python
+     # 引用分组
+     print(re.search(r"(\d{4})-(\d{2})-(\d{2})", "2017-12-13").group(0))  # 2017-12-13
+     print(re.search(r"(\d{4})-(\d{2})-(\d{2})", "2017-12-13").group(1))  # 年 2017
+     print(re.search(r"(\d{4})-(\d{2})-(\d{2})", "2017-12-13").group(2))  # 月 12
+     print(re.search(r"(\d{4})-(\d{2})-(\d{2})", "2017-12-13").group(3))  # 日 13
+   #+END_SRC
+
+   如果正则表达式存在嵌套的括号，括号的编号都是根据开括号出现顺序来计数的。如下：
+   (((\d{4})-(\d{2}))-(\d{2}))，对应有五个开括号，编号按照顺序从一到五。
+   #+BEGIN_SRC python
+     # 嵌套括号情况
+     print(re.search(r"(((\d{4})-(\d{2}))-(\d{2}))", "2017-12-13").group(1))  # 2017-12-13
+     print(re.search(r"(((\d{4})-(\d{2}))-(\d{2}))", "2017-12-13").group(2))  # 2017-12
+     print(re.search(r"(((\d{4})-(\d{2}))-(\d{2}))", "2017-12-13").group(3))  # 2017
+     print(re.search(r"(((\d{4})-(\d{2}))-(\d{2}))", "2017-12-13").group(4))  # 12
+     print(re.search(r"(((\d{4})-(\d{2}))-(\d{2}))", "2017-12-13").group(5))  # 13
+   #+END_SRC
+   我们可以利用引用分组功能提取超链接的详细信息。最基本的是：<a\s+href="([^"]+)">([^<]+)</a>
+   但是 href 的等号两边可以有空白，引号也可以为单引号或者没有引号。综合如下:
+   #+BEGIN_SRC python
+     # 匹配url链接信息
+     hrefTagRegex = r"<a\s+href\s*=\s*[\"']?([^\"'\s]+)[\"']?>([^<]+)</a>"
+     print(re.search(hrefTagRegex, "<a href = \"http://www.baidu.com\">baidu</a>").group(0))
+     print(re.search(hrefTagRegex, "<a href = \"http://www.baidu.com\">baidu</a>").group(1))
+     print(re.search(hrefTagRegex, "<a href = \"http://www.baidu.com\">baidu</a>").group(2))
+
+   #+END_SRC
+
+* 常用正则
+  - 无重复字符
+    #+BEGIN_QUOTE
+    /^(?!.*(.)\1).*$/
+    #+END_QUOTE
+  - 匹配中文字符
+    #+BEGIN_QUOTE
+    [\u4e00-\u9fa5]
+    #+END_QUOTE
+  - 匹配双字节字符
+    #+BEGIN_QUOTE
+    [^\x00-\xff]
+    #+END_QUOTE
+  - 准确匹配主机名
+      #+BEGIN_QUOTE
+      hostnameRegex = r"^(?=[-a-zA-Z0-9.]{0,255}(?![-a-zA-Z0-9.]))((?!-)[-a-zA-Z0-9]{1,63}\.)*((?!-)[-a-zA-Z0-9]){1,63}$"
+      #+END_QUOTE
+
+  - 下划线转驼峰
+    #+BEGIN_SRC python
+re.sub(r'_([a-zA-Z0-9])([a-zA-Z0-9]*)', lambda m: '' + str.upper(m.group(1)) + m.group(2), 's_total_fee')
+    #+END_SRC 
+    emacs 中 =_\([a-zA-Z0-9]\)\([a-zA-Z0-9]*\) --> \,(upcase \1) \2=

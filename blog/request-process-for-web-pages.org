@@ -1,0 +1,117 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 请求一个网页的过程
+#+DATE: 2019-03-07
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: CS
+#+HUGO_CATEGORIES: CS
+#+HUGO_DRAFT: false
+
+
+*来自《计算机网络－自顶向下方法》*
+
+* 场景
+学生 Bob 把他的笔记本连接到宿舍的网络并请求一个 HTTP 页面。宿舍的网络链接连接到
+学校交换机，交换机又连接到学校路由器。
+
+#+HTML:<!-- more --> 
+* 准备阶段一：DHCP UDP TP 以太网
+当 Bob 用网线将笔记本连接到网络端口后，没有 IP 地址他就不能做任何的事情，所以笔
+记本采取的第一个与网络相关的步骤是运行 DHCP 协议，从本地的 DHCP 服务器获取一个
+IP 地址以及其它信息。
+
+1. Bob 笔记本上生成一个 DHCP 请求报文， 并将这个报文放入具有目的地端口 67(DHCP 服
+   务器)和源端口 69(DHCP 客户)的 UDP 报文段，将该 UDP 报文段放置在一个具有广播 IP 目
+   的地地址（255.255.255.255）和源 IP 地址 0.0.0.0 的 IP 数据报中，因为此时笔记
+   本还没有一个 IP 地址。
+2. 包含 DHCP 请求报文的 IP 数据报则被放置在以太网帧中。该以太网帧具有的目的 MAC
+   地址是 FF:FF:FF:FF:FF:FF，使得该帧将广播到与交换机相连的所有设备；该机的源
+   MAC 地址是 Bob 笔记本的 MAC 地址 00:e0:4c:83:b2:14。
+   
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019162602.png]] 
+
+3. 包含 DHCP 请求的广播以太网帧是第一个由 Bob 笔记本发送到以太网交换机的帧。该交
+   换机在出口端广播该帧，包括连接到路由器的端口。
+
+4. 这里假设路由器运行着 DHCP 协议，路由器收到该帧交给上层处理，由此 DHCP 服务器
+   收到了 DHCP 请求报文。
+
+5. DHCP 服务器分配 IP 地址，并生成包含这个 IP 地址以及 DNS 服务器的地址，默认网
+   关路由器的 IP 地址和子网掩码的一个 DHCP ACK 报文。
+   
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019164312.png]] 
+
+6. 包含 DHCP ACK 的以太网帧由路由器发送给交换机。因为交换机是自学习的，并且先前
+   从 Bob 笔记本收到以太网帧，所以该交换机知道寻址到 00:e0:4c:83:b2:14 的帧仅从
+   通向 Bob 笔记本的输出端口转发。
+
+7. Bob 笔记本收到 DHCP ACK 的以太网帧，解析报文，保存 IP 地址。
+   
+* 准备阶段二：DNS ARP
+当 Bob 将 www.baidu.com 输入到浏览器，为了访问该地址，需要知道该地址的 IP 地址。
+所以需要使用 DNS 服务。
+
+1. Bob 笔记本生成一个 DNS 查询报文，将地址放入 DNS 报文的问题字段中。该 DNS 报文
+   则放置在一个具有 53 号目的端口的 UDP 报文段中。该 UDP 报文段放入具有 IP 目的
+   地址 144.144.144.144(DHCP ACK 返回的地址)和源 IP 地址的 IP 数据报中。
+   
+2. Bob 笔记本将该帧发送到网关路由器。虽然通过 DHCP 知道网关路由器的 IP 地址，但
+   是不知路由器的 MAC 地址，因此无法在链路层寻址。为了获得网关路由器的 MAC 地址，
+   Bob 笔记本需要使用 ARP 协议。
+
+3. Bob 笔记本生成一个具有目的 IP 地址的 ARP 查询报文，将该 ARP 报文放置在一个具
+   有广播目的地址（FF:FF:FF:FF:FF:FF）的以太网帧中。并向交换机发送该以太网帧。
+   
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019170614.png]] 
+
+4. 网关路由器收到 ARP 查询报文的帧，发现 ARP 中的目标 IP 地址匹配其接口的 IP 地
+   址，所以该网关路由器准备一个 ARP 回答，指示它的 MAC 地址。将回答发送给 Bob 的
+   笔记本。
+   
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019170637.png]] 
+   
+5. Bob 笔记本收到回答，保存其中的 MAC 地址。
+   
+6. Bob 笔记本现在能够将 DNS 查询的以太网帧发送到网关路由器。
+   
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019172923.png]] 
+   
+* 准备阶段三：域内路由选择到 DSN 服务器。
+1. 学校的路由器根据域内协议（RIP,OSPF, IS-IS）以及因特网域间协议 BGP 填写的转发
+   表将包含 DSN 查询的 IP 数据报送到了 DNS 服务器，DSN 服务器查询到域名对应的 IP
+   地址，将 DNS 回答报文返回给 Bob 笔记本。
+   
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019173013.png]] 
+   
+2. Bob 笔记本得到了 www.baidu.com 的 IP 地址，准备接触 www.baidu.com 的服务器了。
+   
+* 客户端与服务端交互：TCP HTTP
+1. Bob 笔记本有了 www.baidu.com 的 IP 地址，它就能够生成 TCP 套接字，该套接字向
+   www.baidu.com 发送 HTTP GET 报文。第一步，Bob 笔记本需要执行三次握手。因此
+   Bob 笔记本首先生成一个具有目的端口 80 的 TCP SYN 报文段，将该 TCP 报文段放置
+   在 具有 www.baidu.com 的 IP 地址的 IP 数据报中，将该数据报放置在 MAC 地址为网
+   关路由器的帧中，并向减缓交换机发送该帧。
+   
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019173942.png]] 
+   
+2. 网络中的路由器根据转发表将 TCP SYN 数据报转发到 www.baidu.com 的服务器。
+   
+3. www.baidu.com 的服务器收到 TCP SYN 数据报，服务器返回一个 TCP SYN ACK 报文段，
+   并将其放入向 Bob 笔记本寻址的一个数据报中，放入链路层，该链路将数据报发送到路
+   由器。
+   
+4. 包含 TCP SYN ACK 的数据报经过各种中间网络到达 Bob 的笔记本。
+   
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019174527.png]] 
+   
+5. Bob 笔记本发送一个 ACK 报文段到 www.baidu.com 的服务器。三次握手完成。
+    
+   [[file:/home/xhcoding/Blog/images/2019-03-07-web页面的请求过程_2019174542.png]] 
+   
+6. Bob 笔记本上的浏览器生成 HTTP GET 请求报文，发送到 www.baidu.com。
+   
+7. HTTP 服务器读取请求报文，并生成一个 HTTP 响应报文，将请求的 Web 页面内容放入
+   HTTP 响应体中，发送报文到 Bob 的笔记本。
+   
+8. HTTP 响应报文终于到了 Bob 的笔记本。Bob 的浏览器读取 HTTP 响应，最终显示网页。

@@ -1,11 +1,11 @@
 #+HUGO_BASE_DIR: ../
 #+HUGO_SECTION: post
-#+TITLE: raw string literal in cpp11
+#+TITLE: C++11 的 here document
 #+DATE: 2019-07-29
 #+AUTHOR:
 #+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
-#+HUGO_TAGS: c++ 
-#+HUGO_CATEGORIES: c++
+#+HUGO_TAGS: C++ 
+#+HUGO_CATEGORIES: C++
 #+HUGO_DRAFT: false
 
 C++11 中增加了新的语法，允许我们定义所见即所得的字符串，即不再需要转义字符。

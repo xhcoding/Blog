@@ -1,0 +1,335 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: C++11 确保兼容性和稳定性
+#+DATE: 2017-06-12
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++ C++11
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+
+*声明：C++11 特性系列的笔记内容大多来自书籍《深入理解 C++11：C++11 新特性解析与应用》*
+
+* _Pragma 操作符
+    _Pragma 操作符的功能与#pragma 的功能相同，用来向编译器传达语言标准之外的一些信息。
+    _Pragma 操作符的格式如下： _Pragma (字符串字面量)。
+    如 #pragma once 指示编译器头文件只编译一次。使用_Pragma：_Pragma ("once")。
+    由于_Pragma 是一个操作符，类似 sizeof，可以把_Pragma 用于宏中。
+    #+HTML:<!-- more -->
+* 预定义宏
+    C++11 增加了 C99 中一些宏的支持。
+    | 宏名称             | 功能                                                            |
+    |--------------------+-----------------------------------------------------------------|
+    | __STDC_HOSTED__    | 编译器的目标系统环境是否有完整的标准 c 库，有定义为 1，否则定义为 0 |
+    | __STDC__           | 编译器的实现是否和 C 标准一致，宏是否定义以及定义的值由编译器决定 |
+    | __STDC_VERSION__   | 编译器支持的 C 标准版本，宏是否定义以及定义的值由编译器决定       |
+    | __STDC_ISO_10646__ | 表示 C++编译环境符合某个版本的 ISO/IEC 10646                      |
+    
+    #+BEGIN_SRC c++
+      #include <iostream>
+
+      using namespace std;
+
+      int main() {
+          cout << "__STDC_HOSTED__" << __STDC_HOSTED__ << endl;
+          cout << "__STDC__" << __STDC__ << endl;
+          // cout << "__STDC_VERSION__" << __STDC_VERSION__ << endl; 这个宏没有定义
+          cout << "__STDC_ISO_10646__" << __STDC_ISO_10646__ << endl;
+      }
+
+    #+END_SRC
+
+* __func__预定义标识符
+    __func__的基本功能是返回所在函数的名字。对于调试代码有十分重要的作用。在 C++11 中，允许它
+    出现在类或者结构体中。
+    #+BEGIN_SRC c++
+      #include <iostream>
+
+      using namespace std;
+
+      class TestClass {
+        public:
+          TestClass() : name(__func__) {}
+
+          const char* name;
+
+      };
+
+
+      int main() {
+          TestClass tc;
+          cout << tc.name << endl; // 输出结果为TestClass
+      }
+
+    #+END_SRC
+
+* 变长参数的宏定义及__VA_ARGS__    
+    变长参数的宏定义指在参数定义列表的最后一个参数为省略号，而__VA_ARGS__在实现部分替换省略号。
+    #+BEGIN_SRC c++
+      #include <stdio.h>
+
+      #define LOG(...) {\
+              fprintf(stderr, "%s: Line %d:\t", __FILE__, __LINE__);\
+              fprintf(stderr, __VA_ARGS__);\
+              fprintf(stderr, "\n");\
+      }
+
+      int main() {
+          int x = 3;
+
+          LOG("x = %d", x); //输出结果 test-2-3.cpp: Line 12: x = 3
+      }
+
+    #+END_SRC
+
+* 连接宽窄字符
+    C++11 中，在将窄字符(char)和宽字符(wchar_t)连接时，编译器会将窄字符转换成宽字符，
+    再与宽字符进行连接。
+
+* long long 整型
+    C++11 加上了 long long 整型，各平台长度可以不同，但是至少有 64 位。
+    通过查看<climits>(或<limits.h>)中的宏可以了解平台上 long long 的大小。
+
+* 扩展的整型
+    有些整型如__int16、int64_t 等。这些类型有的源于编译器扩展，有的来自某些编程环境等。
+    C++11 只定义了 5 种整型：signed char、short int、int、long int、 long long int
+    每种整型都有对应的无符号类型，有符号与无符号版本有相同的存储空间大小。
+    
+    C++11 允许编译器扩展自有的整型，扩展的整型必须和标准类型一样，有符号类型和无符号类型占有
+    同样的空间大小。
+    整型提升的原则：
+    - 长度越大等级越高
+    - 长度相同，标准整型的等级高于扩展类型
+    - 相同大小的有符号类型和无符号类型大小相同
+
+* 宏__cplusplus
+    在 C++11 中__cplusplus 被预定义为 201103L。如果要代码使用支持 C++11 的编译器编译，
+    可以像下面这样检测：
+    #+BEGIN_SRC c++
+      #if __cplusplus < 201103L
+          #error "should use c++11 implementation"
+      #endif
+    #+END_SRC
+
+* 静态断言
+    静态断言也就是在编译期断言。在 C++11 中使用 static_assert 来实现。
+    static_assert 接受两个参数，一个是断言表达式，需要返回一个 bool 值；一个是警告信息。
+
+    #+BEGIN_SRC c++
+      static_assert(sizeof (int) == 8, "This 64-bit machine should follow this");
+
+      int main() {
+          return 0;
+      }
+    #+END_SRC
+
+    static_assert 的断言表达式必须是在编译期可以计算的表达式。
+
+* noexcept 修饰符和 noexcept 操作符
+    C++11 中一个函数被 noexcept 表示它不会抛出异常。如果抛出了异常，编译器会终止程序的运行。
+    noexpect 修饰符有两种形式，一种是直接在函数后面加 noexpect，
+    还有一种是可以接受一个常量表达式作为参数。
+    #+BEGIN_SRC c++
+      void excpt_func() noexcept;
+
+      void excpt_func() noexcept (常量表达式);
+    #+END_SRC
+
+    不带常量表达式的 noexcept 就相当于 noexcept (true)
+
+    noexcept 作为一个操作符时通常可以用于模板中。如：
+    #+BEGIN_SRC c++
+      template <class T>
+      void fun() noexcept(noexcept (T()))
+    #+END_SRC
+    fun 是否是一个 noexcept 函数，由 T()表达式是否抛出异常决定。第二个 noexcept 就是一个 noexcept 操作符，
+    当其参数是一个有可能抛出异常的表达式时，其返回值为 false，反之为 true。
+
+* 快速初始化成员变量
+    在 C++11 中，标准允许非静态成员变量的初始化有多种形式。除了初始化列表外，标准还允许使用等号或者
+    {}进行就地的非静态成员变量初始化。
+    #+BEGIN_SRC c++
+      struct init {
+          int a = 1;
+          double b { 1.2 };
+      };
+    #+END_SRC
+    对于非常量的静态成员，C++11 还是需要到头文件以外的地方定义它，这会保证编译时，
+    类静态成员的定义最后只存在于一个目标文件中。
+
+* 非静态成员的 sizeof
+    在 C++98 中只有静态成员或者对象的实例才能对其成员进行 sizeof 操作
+    C++11 可以不用定义实例，直接获取非静态成员的大小。
+    #+BEGIN_SRC c++
+      #include <iostream>
+      using namespace std;
+
+      class F {
+        public:
+          int n;
+          static char ch;
+      };
+
+      int main() {
+
+          F f;
+          cout << sizeof (f.n) << endl; // C++98 通过， C++11 通过
+          cout << sizeof (F::ch) << endl;   // C++98 通过， C++11 通过
+          cout << sizeof (F::n) << endl;   // C++98 不通过， C++11 通过
+      }
+    #+END_SRC
+
+* 扩展的 friend 语法
+    在 C++11 中，声明一个类为另一个类的友元时，不在需要使用 class 关键字了。
+    #+BEGIN_SRC c++
+      #include <iostream>
+      using namespace std;
+
+      class Poly;
+      typedef Poly P;
+
+      class A {
+          friend class Poly; // C++98 通过， C++11通过
+      };
+
+      class B {
+          friend Poly;  // C++98 不通过， C++11通过
+      };
+
+      class C {
+          friend P; // C++98 不通过， C++11通过
+      };
+
+      int main() {
+
+      }
+
+    #+END_SRC
+    这个变化可以为类模板声明友元了，这在 C++98 中无法做到。
+    #+BEGIN_SRC c++
+      class P;
+
+      template <typename T> class People {
+          friend T;
+      };
+
+      People<P> pp;  // 类型P是People的友元
+      People<int> pi;  // 对于int类型，友元声明被忽略
+    #+END_SRC
+
+* final/override 控制
+    final 能够阻止派生类重载父类的成员。
+    #+BEGIN_SRC c++
+      class Object {
+        public:
+          virtual void fun();
+      };
+
+      class Base : public Object {
+        public:
+          void fun() final; // 声明为final
+      };
+
+      class Derived : public Base {
+          void fun(); // 无法通过编译，以Base为基类的派生类都不能再重载void fun();
+      };
+    #+END_SRC
+    
+    override 描述符表示一个函数是基类的重载版本，如果不是重载版本，编译器就会报错。
+    #+BEGIN_SRC c++
+      class Base {
+          virtual void foo(int i);
+      };
+
+      class Derived : public Base {
+          void foo(double i) override;
+          // 编译错误，使用了override，说明此函数一定是基类函数的一个重载版本，但基类并没有对应的虚函数。
+      };
+    #+END_SRC
+
+* 模板函数的默认模板参数
+    在 C++98 中模板类的声明可以有默认模板参数，但是函数不能有，C++11 模板函数也能有默认参数了：
+    #+BEGIN_SRC c++
+      template <class T = int>
+      class F{}; // C++98编译通过，C++11编译通过
+      template <typename T = int>
+      void foo(); // C++98编译失败，C++11编译通过
+    #+END_SRC
+
+    C++11 中类模板的默认参数必须从右往左定义，而函数模板的默认参数位置随意。
+    #+BEGIN_SRC c++
+      template <typename T1, typename T2 = int> class DefClass1;
+      template <typename T1 = int, typename T2> class DefClass2;  // 无法通过编译
+
+      template <typename T1 = int, typename T2> void DefFunc1(T1 a, T2 b);
+      template <int i = 0, typename T> void DefFunc2(T a);   // 函数模板，默认参数顺序无关
+
+    #+END_SRC
+
+* 外部模板
+    外部(extern)的概念在 c 中就已经存在了，当我们在 a.c 中定义一个变量 i，在 b.c 中想使用它，
+    我们就需要在 b.c 中声明:
+    #+BEGIN_SRC c
+      extern int i
+    #+END_SRC
+    这样生成的目标文件 a.o 和 b.o 就只有一份定义，不然就会产生两份定义，链接时就会出现错误。
+    
+    对于函数模板也会有同样的问题，在不同文件中使用了模板函数，编译器会实作出两份一样的代码，
+    虽然编译器会删除一份，但是这会花很多时间。
+    
+    外部模板的使用依赖于显示实例化，外部模板的声明在显示实例化前加一个关键字 extern，具体看示例代码。
+    #+BEGIN_SRC c++
+      //在test.h中定义下面这个模板函数
+      template <typename T>
+      void fun(T) {}
+
+      //在a.cpp中定义下面的代码
+      #include "test.h"
+
+      template void fun<int>(int); // 显示地实例化
+
+      void test1() {
+          fun(3);
+      }
+
+      // 在b.cpp中定义如下代码
+      #include "test.h"
+
+      extern template void fun<int>(int); // 在另一个文件使用同样的fun时，声明外部模板
+      void test2() {
+          fun(4);
+      }
+    #+END_SRC
+
+    外部模板声明不能用于一个静态函数。
+
+* 局部和匿名类型作为模板实参
+    在 C++98 中，局部类型和匿名的类型都不能做模板类的实参。
+    #+BEGIN_SRC c++
+      template <typename T> class X { };
+      template <typename T> void TempFun(T t) { };
+      struct A { } a;
+      struct { int i; }b; // b是匿名类型变量
+      typedef struct { int i; }B;//B是匿名类型
+
+      void Fun() {
+
+          struct C { }c;
+          X<A> x1; // C++98通过， C++11通过
+          X<B> x2;  // C++98错误，C++11通过
+          X<C> x3; // C++98错误，C++11通过
+          TempFun(a);// C++98通过，C++11通过
+          TempFun(b); // C++98错误，C++11通过
+          TempFun(c); // C++98错误，C++11通过
+      }
+    #+END_SRC
+
+    匿名类型的声明不能在模板实参的位置。
+    #+BEGIN_SRC c++
+      template <typename T> struct MyTemplate { };
+      int main() {
+          MyTemplate<struct { int a; }> t;
+          return 0;
+      }
+    #+END_SRC

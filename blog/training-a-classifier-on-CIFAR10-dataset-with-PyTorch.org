@@ -1,0 +1,210 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 使用PyTorch 训练一个CIFAR10 分类器
+#+DATE: 2019-03-25
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Python
+#+HUGO_CATEGORIES: Python
+#+HUGO_DRAFT: false
+
+原文链接：https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
+
+* CIFAR10 数据集介绍
+
+该数据集共有 60000 张彩色图像，这些图像是 3*32*32，即 3 通道彩色 32*32 的图片，分为 10 个类，每类 6000 张图
+[[../images/2019-03-25-用pytorch在cifar10数据集上训练一个分类器_2019102316.png]]
+
+#+HTML:<!-- more --> 
+* 载入数据
+使用 PyTorch 加载数据，本地没有会自动下载数据
+#+BEGIN_SRC python
+import torch
+import torchvision
+import torchvision.transforms as transforms
+#+END_SRC
+
+#+RESULTS:
+
+torchvision 载入的数据是 PILImage 图片，将它转换为 Tensor，取值为 [-1, 1]
+#+BEGIN_SRC python
+transform = transforms.Compose(
+    [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+)
+
+trainset = torchvision.datasets.CIFAR10(
+    root="../DataSet", train=True, download=True, transform=transform
+)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=4, shuffle=True, num_workers=2)
+
+
+testset = torchvision.datasets.CIFAR10(
+    root="../DataSet", train=False, download=True, transform=transform
+)
+
+testloader = torch.utils.data.DataLoader(testset, batch_size=4, shuffle=False, num_workers=2)
+
+classes = ('plane', 'car', 'bird', 'cat',
+           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+#+END_SRC
+
+* 显示数据
+#+BEGIN_SRC python
+import matplotlib.pyplot as plt
+import numpy as np
+
+def imshow(img):
+    img = img / 2 + 0.5     # unnormalize
+    npimg = img.numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+    plt.show()
+
+
+# get some random training images
+dataiter = iter(trainloader)
+images, labels = dataiter.next()
+
+# show images
+imshow(torchvision.utils.make_grid(images))
+# print labels
+print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+
+#+END_SRC
+
+* 定义网络
+#+BEGIN_SRC python
+# 继承自 nn.Module
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()  # 传入Net
+        self.conv = nn.Sequential()
+        # C1
+        self.conv.add_module("C1", nn.Conv2d(3, 6, 5))
+        self.conv.add_module("Relu1", nn.ReLU())
+        # S2
+        self.conv.add_module("S2", nn.MaxPool2d(2))
+        # C3
+        self.conv.add_module("C3", nn.Conv2d(6, 16, 5))
+        self.conv.add_module("Relu3", nn.ReLU())
+        # S4
+        self.conv.add_module("S4", nn.MaxPool2d(2))
+
+        self.dense = nn.Sequential()
+        # F5
+        self.dense.add_module("F5", nn.Linear(16 * 5 * 5, 120))
+        # F6
+        self.dense.add_module("F6", nn.Linear(120, 84))
+        # F7
+        self.dense.add_module("F7", nn.Linear(84, 10))
+
+    def forward(self, x):
+        """定义前向传播，反向传播自动求导机制自动定义"""
+        conv_out = self.conv(x)
+        res = conv_out.view(conv_out.size(0), -1)  # 多维变一维作为全连接的输入
+        out = self.dense(res)
+        return out
+
+#+END_SRC
+
+* 训练
+训练过程的代码框架和 =PyTorch的HelloWord之旅= 一样，只是改变了一些参数
+
+[[file:/home/xhcoding/Blog/images/2019-03-25-用pytorch在cifar10数据集上训练一个分类器_2019113352.png]] 
+
+从上图可以看到正确率并不高，损失值不断波动，不再下降，通过更改 batch_size 正确率
+会上升几个百分点。这个时候想到修改网络。
+
+* 优化
+更改网络结构：
+
+#+BEGIN_SRC python
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()  # 传入Net
+        self.conv = nn.Sequential()
+        # C1
+        self.conv.add_module("C1", nn.Conv2d(3, 20, 5, padding=2))
+        self.conv.add_module("Relu1", nn.ReLU())
+        # S2
+        self.conv.add_module("S2", nn.MaxPool2d(2))
+        # C3
+        self.conv.add_module("C3", nn.Conv2d(20, 50, 5, padding=2))
+        self.conv.add_module("Relu3", nn.ReLU())
+        # S4
+        self.conv.add_module("S4", nn.MaxPool2d(2))
+
+        self.dense = nn.Sequential()
+        # F5
+        self.dense.add_module("F5", nn.Linear(50 * 8 * 8, 500))
+        self.dense.add_module("Relu5", nn.ReLU())
+        # F6
+        self.dense.add_module("F6", nn.Linear(500, 10))
+        self.dense.add_module("Relu6", nn.ReLU())
+
+    def forward(self, x):
+        """定义前向传播，反向传播自动求导机制自动定义"""
+        conv_out = self.conv(x)
+        res = conv_out.view(conv_out.size(0), -1)  # 多维变一维作为全连接的输入
+        out = self.dense(res)
+        return out
+#+END_SRC
+
+这个网络在训练 30 轮后正确率能达到 78%
+
+[[file:/home/xhcoding/Blog/images/2019-03-25-用pytorch在cifar10数据集上训练一个分类器_2019141240.png]] 
+
+参考 VGG16 网络：
+
+#+BEGIN_SRC python
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()  # 传入Net
+        self.conv = nn.Sequential()
+        # C1
+        self.conv.add_module("C1", nn.Conv2d(3, 64, 3, padding=1))
+        self.conv.add_module("Relu1", nn.ReLU())
+        # S2
+        self.conv.add_module("S2", nn.MaxPool2d(2))
+        # C3
+        self.conv.add_module("C3", nn.Conv2d(64, 128, 3, padding=1))
+        self.conv.add_module("Relu3", nn.ReLU())
+        # S4
+        self.conv.add_module("S4", nn.MaxPool2d(2))
+        # C5
+        self.conv.add_module("C5", nn.Conv2d(128, 256, 3, padding=1))
+        self.conv.add_module("Relu5", nn.ReLU())
+        # S6
+        self.conv.add_module("S6", nn.MaxPool2d(2))
+
+        self.dense = nn.Sequential()
+        # F7
+        self.dense.add_module("F7", nn.Linear(256 * 4 * 4, 1000))
+        self.dense.add_module("Relu7", nn.ReLU())
+        # F8
+        self.dense.add_module("F8", nn.Linear(1000, 10))
+        self.dense.add_module("Relu8", nn.ReLU())
+
+    def forward(self, x):
+        """定义前向传播，反向传播自动求导机制自动定义"""
+        conv_out = self.conv(x)
+        res = conv_out.view(conv_out.size(0), -1)  # 多维变一维作为全连接的输入
+        out = self.dense(res)
+        return out
+
+
+#+END_SRC
+
+在训练到十几轮的时候发现过拟合：
+[[file:/home/xhcoding/Blog/images/2019-03-25-用pytorch在cifar10数据集上训练一个分类器_2019143636.png]] 
+
+在全连接前加一层 dropout 可以防止，总共训练 100 轮，在差不多 50 轮后，开始出现过拟
+合现象，最后结果如下图，正确率最高 82%
+
+[[file:/home/xhcoding/Blog/images/2019-03-25-用pytorch在cifar10数据集上训练一个分类器_2019161448.png]] 
+
+完整代码：[[https://github.com/xhcoding/recipes/blob/master/Python/MachineLearning/PyTorch/cifar10.py][github]]
+训练命令：
+#+BEGIN_SRC shell
+python cifar10.py --cifar10-data ../DataSet --log-interval 200 --batch-size 64 --test-batch-size 64 --epochs 100 --save-model --seed 100
+#+END_SRC
+

@@ -1,0 +1,205 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 生产者消费者模型
+#+DATE: 2018-12-19
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+
+* 线程的概念
+为了减少程序并发执行的时空开销，使得并发粒度更细，并发性更好，把进程的两项功能
+（独立分配资源和被调度分派执行）分开得到线程。线程是操作系统进程中能够独立执行的
+实体，是处理器调度和分派的基本单位。
+
+线程是进程的组成部份，每个进程有允许包含多个并发执行的实体，这就是多线程。
+
+线程的组成：
+- 线程唯一的标识符及线程状态信息
+- 未运行时保存的线程上下文
+- 核心栈
+- 用于存放线程局部变量及用户栈的私有存储区
+
+#+HTML:<!-- more --> 
+* 线程同步
+当多个控制线程共享相同的内存时，需要确保每个线程看到一致的数据。当一个线程修改变
+量时，其它线程在读取这个变量时可能看到一个不一致的值，因此我们需要对变量加锁，保
+证同一时间只允许一个线程访问该变量。
+
+** 互斥量
+互斥量本质上是一把锁，在访问共享资源前对互斥量进行加锁，在访问完成后释放锁。对互
+斥量加锁后，任何其它试图再次对互斥量加锁的线程都会被阻塞直到当前线程释放互斥量。
+
+** 条件变量
+条件变量是另一种同步机制。条件变量给多个线程提供一个会合的场所。条件变量与互斥量
+一起使用时，允许线程以无竞争的方式等待特定条件的发生。
+
+当不满足条件时，我们可以让当前线程等待，当满足条件时，我们可以唤醒其它等待的线程。
+
+* 生产者消费者模型
+这是一种在多线程环境常见的模型，生产者线程负责生产产品将产品放到缓冲区队列，消费者线
+程从缓冲区取产品消费。可以出现多个生产者线程和多个消费者线程。
+
+线程与线程之间的关系：
+- 生产者线程之间存在竞争关系，不能同时把产品放入缓冲区
+- 消费者线程之间存在竞争关系，不能同时从缓冲区取产品
+- 生产者线程和消费者线程需要通信，当缓冲区为空时，生产者线程需要等待消费者线程生
+  产产品；当缓冲区满了，消费者线程需要等待生产者线程生产产品。当缓冲区中有一个产
+  品时，生产者线程通知消费者线程可以消费；当满的缓冲区被消费者消费后需要通知生产
+  者线程开始生产产品。
+  
+* 代码实例
+#+BEGIN_SRC c++
+#include <condition_variable>
+#include <iostream>
+#include <mutex>
+#include <thread>
+#include <queue>
+#include <unistd.h>
+
+using namespace std;
+
+// 缓冲区队列，最大存储10个产品
+constexpr int MAX_SIZE = 10;
+long buffer[MAX_SIZE];
+
+// 插入产品位置
+int in = 0;
+// 输出产品位置
+int out = 0;
+// 计数，buffer中的产品数
+int counter = 0;
+
+// 产品
+long nextp = 0;
+
+// 互斥量，用于保护输出
+mutex print_mutex;
+// 互斥量，用于保护条件变量
+mutex condition_mutex;
+
+// 条件变量，非满条件
+condition_variable not_full;
+// 条件变量，非空条件
+condition_variable not_empty;
+
+// 生产产品花的时间
+int producer_time = 1;
+// 消费产品花的时间
+int consumer_time = 1;
+
+//生产产品
+void producer() {
+  while (1) {
+    // 花1秒生产产品
+    sleep(producer_time);
+    {
+      // 输出当前生成的产品信息
+      lock_guard<mutex> lock(print_mutex);
+      cout << "生产者线程：队列位置 "  << in << " 产品编号: " << nextp + 1 << "\n";
+    }
+    // 改变条件时锁住互斥量
+    unique_lock<mutex> lk(condition_mutex);
+    // 缓冲区已满
+    while (counter == MAX_SIZE) {
+      {
+        lock_guard<mutex> lock(print_mutex);
+        cout << "等待消费者线程\n";
+      }
+      // 当前线程进入等待，直到缓冲区不为满状态
+      not_full.wait(lk);
+    }
+    // 将产品放入队列中
+    nextp++;
+    buffer[in] = nextp;
+    in = (in + 1) % MAX_SIZE;
+    // 产品数量加1
+    counter++;
+    // 如果产品数量大于,满足非空条件，通知消费者线程可以消费
+    if (counter >= 1) {
+      not_empty.notify_all();
+    }
+    lk.unlock();
+  }
+}
+
+void consumer() {
+  while (1) {
+    unique_lock<mutex> lk(condition_mutex);
+    // 如果缓冲区产品为空，等待生产者线程
+    while (counter == 0) {
+      {
+        lock_guard<mutex> lock(print_mutex);
+        cout << "等待生产者线程\n";
+      }
+      // 等待生产者线程，直到满足缓冲区非空条件
+      not_empty.wait(lk);
+    }
+    // 取出产品
+    long nextc = buffer[out];
+    int old_out = out;
+    out = (out + 1) % MAX_SIZE;
+    counter--;
+    // 如果满足缓冲区非满条件，唤醒生产者线程
+    if (counter < MAX_SIZE) {
+      not_full.notify_all();
+    }
+    lk.unlock();
+    sleep(consumer_time);
+    {
+      lock_guard<mutex> lock(print_mutex);
+      cout << "消费者线程 队列位置：" << old_out << " 产品编号: " << nextc << "\n";
+    }
+  }
+}
+
+int main() {
+  // 生产者线程
+  thread t1(producer);
+  // 消费者线程
+  thread t2(consumer);
+  t2.join();
+  t1.join();
+  return 0;
+}
+
+#+END_SRC
+
+一个生产者和消费者只是 n 个生产者和 n 个消费者的特殊情况，上面的 producer()和
+consumer()可以用于 n 个生产者和 n 个消费者的情况。
+
+一个特别应该关注的点是条件的判断：
+#+BEGIN_SRC c++
+// 缓冲区已满
+while (counter == MAX_SIZE) {
+  {
+    lock_guard<mutex> lock(print_mutex);
+    cout << "等待消费者线程\n";
+  }
+  // 当前线程进入等待，直到缓冲区不为满状态
+  not_full.wait(lk);
+}
+#+END_SRC
+
+#+BEGIN_SRC c++
+// 如果缓冲区产品为空，等待生产者线程
+while (counter == 0) {
+  {
+    lock_guard<mutex> lock(print_mutex);
+    cout << "等待生产者线程\n";
+  }
+  // 等待生产者线程，直到满足缓冲区非空条件
+  not_empty.wait(lk);
+}
+#+END_SRC
+
+这里判断用的 while 而不能够用 if。考虑有多个生产者的情况，当缓冲区满时，多个生产者
+线程阻塞在 ~not_full.wait(lk)~ 这里，当消费者消费一个产品后，会通知所有阻塞的生
+产者线程，调度器随机调度一个生产者线程恢复执行，该线程会获取 condition_mutex，执
+行完后缓冲区重新变满。当这个线程释放 condition_mutex 后，阻塞的其它线程会获取这个
+mutex 从而开始执行，如果是~if~不是~while~,这个生产者线程就不会再次判断缓冲区是否
+是满的而执行下面的步骤，导致缓冲区溢出。多个消费者同理
+
+可以通过修改 sleep()的时间，验证各种情况！

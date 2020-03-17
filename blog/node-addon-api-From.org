@@ -1,0 +1,80 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: node-addon-api-From
+#+DATE: 2020-03-16
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++
+#+HUGO_CATEGORIES: C++ 
+#+HUGO_DRAFT: false
+
+
+* 转换成 Value
+
+#+BEGIN_SRC c++
+
+template <typename T>
+Value Value::From(napi_env env, const T& value) {
+  using Helper = typename std::conditional<
+    std::is_integral<T>::value || std::is_floating_point<T>::value,
+    details::vf_number<T>,
+    typename std::conditional<
+      details::can_make_string<T>::value,
+      String,
+      details::vf_fallback<T>
+    >::type
+  >::type;
+  return Helper::From(env, value);
+}
+
+#+END_SRC
+
+=From= 函数将一个 C++ 类型的值转换成 =Value= 类型。
+
+首先用 =using helper= 在编译期决定某种类型的 =Helper= ，然后用 =Helper= 的
+=From= 方法做转换。
+
+=std::conditional= 的声明如下，如果 =B= 为 =true= ，它的 =type= 为 T ，否则为 F。
+#+BEGIN_SRC c++
+template< bool B, class T, class F >
+struct conditional;
+#+END_SRC
+
+如果 =T= 是整数 (=std::is_integral=) 或者浮点数 (=std::is_floating_point=) ，
+=Helper= 就是 =details:vf_number= ，否者， 如果 =T= 能够成为
+=string(details::can_make_string)= ，=Helper= 就为 =String=, 否者为 =details::vf_fallback=
+
+=details::vf_number= 的代码如下：
+#+BEGIN_SRC c++
+template <typename T>
+struct vf_number {
+  static Number From(napi_env env, T value) {
+    return Number::New(env, static_cast<double>(value));
+  }
+};
+
+template<>
+struct vf_number<bool> {
+  static Boolean From(napi_env env, bool value) {
+    return Boolean::New(env, value);
+  }
+};
+#+END_SRC
+
+将 =bool= 类型的值转换成 =Boolean=，其他的都转换成 =Number=
+
+=defails:cam_make_string= 的代码如下：
+#+BEGIN_SRC c++
+template <typename...> struct disjunction : std::false_type {};
+template <typename B> struct disjunction<B> : B {};
+template <typename B, typename... Bs>
+struct disjunction<B, Bs...>
+    : std::conditional<bool(B::value), B, disjunction<Bs...>>::type {};
+
+template <typename T>
+struct can_make_string
+    : disjunction<typename std::is_convertible<T, const char *>::type,
+                  typename std::is_convertible<T, const char16_t *>::type,
+                  typename std::is_convertible<T, std::string>::type,
+                  typename std::is_convertible<T, std::u16string>::type> {};
+#+END_SRC

@@ -1,0 +1,135 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 统计数字出现的次数
+#+DATE: 2017-11-05
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Algorithm
+#+HUGO_CATEGORIES: Algorithm
+#+HUGO_DRAFT: false
+
+* 问题描述
+  给定一个 n(n >= 1),计算 1-n 分别有多少个 0,1,2,...,9
+  #+HTML:<!-- more -->
+* 解决思路
+** 直接求解
+   通过除法和求余，计算每个数字的次数。
+   #+BEGIN_SRC c
+     int ans = 0;
+     while (n) {
+	 if (n % 10 == x)
+	     ans++;
+	 n /= 10;
+     }
+   #+END_SRC
+
+** 找数学规律
+   1-9 数字出现的规律如下，0不符合规律，需要单独考虑
+   - 从 1 到 10，x 在个位数出现 1 次
+   - 从 1 到 100，x 在十位数出现 10 次
+   - 从 1 到 1000，x 在百位数出现了 100 次
+   即从 1 到 $10^i$ ，从左数第二位中，x出现了 $10^{i-1}$ 次
+   
+   如 1234 中 2 的个数。
+   根据上面的规律，首先个位数的 2 的个数，从 1 到 1230 有 123 个 10,2 的个数为 123，
+
+   然后从个位数从 1-4，4 比 2 大，所以个位数的 2 为 123+1=124；
+
+   从 1 到 1200 有 12 个 100,所以十位 2 的个数为 12*10=120，然后从 1201 到 1234，十位数 3 比 2 大，
+
+   所以 2 的个数为 10，所有十位 2 的个数为 120+10=130；
+
+   从 1 到 1000 有 1 个 100,所以百位数 2 的个数为 1*100=100，从 1001 到 1234，百位数个数为 2==x，
+
+   所以 2 的个数为 34+1,即 200-234。所有百位数 2 的个数为 100+35=135；
+
+   千位数 1 < 2，所以不会有 2。
+
+   综上，2的个数为 124+130+135=389 个
+
+   对于 0，规律有点特殊，因为 0 不可能位于最高位，所以最高位可以不考虑。
+
+   不可能出现前导 0 的情况，如 1-99 有 20 个 1,但是只有 9 个 0，
+
+   就是因为出现 10,11,12...，但不会出现 00,01,02...
+* 代码实现
+  1. 直接法
+     #+BEGIN_SRC c++
+       #include <iostream>
+
+
+       using namespace std;
+
+       int countOne(int n, int x) {
+	   int ans = 0;
+	   while (n) {
+	       if (n % 10 == x) {
+		   ans++;
+	       }
+	       n /= 10;
+	   }
+	   return ans;
+       }
+
+       int countAll(int n, int x) {
+	   int ans = 0;
+	   for (int i = 1; i <= n; i++) {
+	       ans += countOne(i, x);
+	   }
+	   return ans;
+       }
+
+       int main() {
+	   int n;
+	   cin >> n;
+	   for (int x = 0; x <= 9; x++) {
+	       cout << count(n, x) << endl;
+	   }
+	   return 0;
+       }
+
+     #+END_SRC
+
+  2. 数学规律法
+     #+BEGIN_SRC c++
+       #include <iostream>
+       using namespace std;
+       int count(int n, int x) {
+	   int ans = 0;
+	   int k = 0;
+	   for (int i = 1; (k = n / i); i *= 10) {
+	       // 高位数字
+	       int h = k / 10;
+	       if (x == 0) {
+		   // 为0特殊判断
+		   if (h) {
+		       h--; 
+		   } else {
+		       break;
+		   }
+	       }
+	       ans += h * i;
+	       // 当前位的数字
+	       int cur = k % 10;
+	       if (cur > x) {
+		   // 求当前位的数字大于x时
+		   ans += i;
+	       } else if (cur == x){
+		   // 相等时
+		   // n - k * i为低位的数字
+		   ans += n - k * i + 1;
+	       }
+	   }
+	   return ans;
+       }
+
+       int main() {
+	   int n;
+	   cin >> n;
+	   for (int x = 0; x <= 9; x++) {
+	       cout << count(n, x) << endl;
+	   }
+	   return 0;
+       }
+
+     #+END_SRC
