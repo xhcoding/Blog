@@ -1,0 +1,135 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: angular commit message 规范
+#+DATE: 2020-03-25
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Tools
+#+HUGO_CATEGORIES: Tools
+#+HUGO_DRAFT: false
+
+* 规范化 commit message 的好处
+- 可以从 commits 生成 CHANGELOG
+- 用 =git bisect= 时忽略掉不相关的提交，如格式化代码
+  #+BEGIN_SRC shell
+git bisect skip $(git rev-list --grep irrelevant <good place> HEAD)
+  #+END_SRC
+- 更加方便的查看 commit 历史
+  #+BEGIN_SRC shell
+git log <last release> HEAD --grep feature
+  #+END_SRC
+
+* 格式
+每一次的 commit message 包括三个部分： Header, Body, Footer ，每个部分之间有一个
+空行
+#+BEGIN_SRC
+Header
+
+Body
+
+Footer
+#+END_SRC
+
+** Header
+Header 部分只有一行，包括三个部分：type (必须), scope(可选) 和 subject (必须) 。
+#+BEGIN_SRC
+<type>(<scope>): <subject>
+#+END_SRC
+
+*** type
+type 用于说明 commit 的类型。
+#+BEGIN_SRC
+feat: 新的功能 (feature)
+fix: bug 的修复
+docs: 文档的改变
+style: 格式，不影响代码运行的改动
+refactor：重构，不应该引入新的功能和bug 的修复
+test: 和测试相关的改变
+chore: 构建工具或辅助工具的改变
+#+END_SRC
+
+如果 type 为 feat 和 fix, 则该 commit 肯定出现在 CHANGELOG 中。
+
+*** scope
+scope 用于说明 commit 影响的范围，如 Windows, Linux 等。
+
+*** subject
+subject 是 commit 的简短描述，不超过 50 个字符。
+- 以动词开头
+- 如果是英文，第一字母小写
+- 结尾不加句号
+
+** Body
+Body 部分是对本次 commit 的详细描述，可以分成多行。如果是解决一个 issue ，必须包
+括 issue 号，最好包括 issue 链接。
+
+** Footer
+Footer 部分只用于不兼容变动和关闭 Issue。
+
+#+BEGIN_SRC
+BREAKING CHANGE: isolate scope bindings definition has changed.
+
+    To migrate the code follow the example below:
+
+    Before:
+
+    scope: {
+      myAttr: 'attribute',
+    }
+
+    After:
+
+    scope: {
+      myAttr: '@',
+    }
+
+    The removed `inject` wasn't generaly useful for directives so there should be no code using it.
+#+END_SRC
+
+#+BEGIN_SRC
+Closes #123, #245, #992
+#+END_SRC
+** Revert
+Revert 是一种特殊情况，格式是以 =revert:= 开头，后面跟着被撤销 commit 的 Header
+#+BEGIN_SRC
+revert: feat(pencil): add 'graphiteWidth' option
+
+This reverts commit 667ecc1654a317a13331b17617d973392f415f02.
+#+END_SRC
+
+Body 部分的格式是固定的，必须写成 =This reverts commit hash.=，其中的 hash 是被撤销 commit 的 SHA 标识符。
+* 模板
+#+BEGIN_SRC
+# type(<scope>): <subject>
+
+# <Body>
+
+# <Footer>
+
+# type 字段包含:
+# feat: 新的功能 (feature)
+# fix: bug 的修复
+# docs: 文档的改变
+# style: 格式，不影响代码运行的改动
+# refactor：重构，不应该引入新的功能和bug 的修复
+# test: 和测试相关的改变
+# chore: 构建工具或辅助工具的改变
+
+# scope 用于说明 commit 影响的范围，如 Windows, Linux 等。
+
+# subject 是 commit 的简短描述，不超过 50 个字符。
+
+# Body 部分是对本次 commit 的详细描述，可以分成多行。
+# 如果是解决一个 issue ，必须包括 issue 号，最好包括 issue 链接。
+
+# Revert 是一种特殊情况
+# revert: feat(pencil): add 'graphiteWidth' option
+# This reverts commit 667ecc1654a317a13331b17617d973392f415f02.
+#+END_SRC
+
+将上面的代码复制到 =~/.git-commit-template.txt=
+
+配置模板：
+#+BEGIN_SRC shell
+git config --global commit.template ~/.git-commit-template.txt
+#+END_SRC

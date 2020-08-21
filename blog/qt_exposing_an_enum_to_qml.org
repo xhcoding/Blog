@@ -1,0 +1,110 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: Qt 将 C++ 中的枚举作为信号的参数传 qml
+#+DATE: 2020-03-28
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: QT C++
+#+HUGO_CATEGORIES: QT
+#+HUGO_DRAFT: false
+
+
+error.h
+
+#+begin_src c++
+#pragma once
+
+#include <QObject>
+#include <QQmlEngine>
+
+class Error {
+    Q_GADGET
+    Q_ENUMS(Type)
+    Q_PROPERTY(Type type READ type WRITE setType)
+public:
+    enum class Type { NoError, Fatal };
+
+    static void RegisterType() {
+        qmlRegisterUncreatableType<Error>(
+                "My.Error", 1, 0, "Error", "can not creatable");
+    }
+
+    Type type() const {
+        return type_;
+    }
+
+    void setType(Type type) {
+        type_ = type;
+    }
+
+private:
+    Type type_;
+};
+
+Q_DECLARE_METATYPE(Error::Type)
+
+#+end_src
+
+send_error.h
+
+#+begin_src c++
+#pragma once
+#include <QObject>
+
+#include "error.h"
+class SendError : public QObject {
+    Q_OBJECT
+public:
+    using QObject::QObject;
+
+public:
+    Q_INVOKABLE void sendFailed();
+
+signals:
+    void failed(Error::Type error, const QString& message);
+};
+
+#+end_src
+
+send_error.cpp
+#+begin_src c++
+#include "senderror.h"
+
+void SendError::sendFailed() {
+    emit failed(Error::Type::Fatal, "this is fatal error");
+}
+
+#+end_src
+
+main.qml
+
+#+begin_src js
+import QtQuick 2.12
+import QtQuick.Window 2.12
+import My.Error 1.0
+Window {
+    visible: true
+    width: 640
+    height: 480
+    title: qsTr("Hello World")
+
+    Connections {
+        target: sendError
+        onFailed: function(type, message) {
+            if (type === Error.Fatal) {
+                console.log("type is fatal")
+            } else if (type === Error.NoError) {
+                console.log("type is no error")
+            }
+        }
+    }
+
+  MouseArea {
+      anchors.fill: parent
+      onClicked: {
+          sendError.sendFailed()
+      }
+  }
+}
+
+#+end_src

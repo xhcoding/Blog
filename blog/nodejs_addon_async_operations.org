@@ -1,0 +1,286 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 用 C++ 写异步的 Node.js 插件
+#+DATE: 2020-04-27
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS:
+#+HUGO_CATEGORIES:
+#+HUGO_DRAFT: false
+
+* 简介
+  有时候 C++ 插件会执行非常耗时的任务，为了避免阻塞 Node.js 的事件循环，我们应该异步的运行耗时的任务。
+
+  对于 C++ 写的 Node.js 插件，有两种方式完成耗时的异步任务：
+  1. 依赖 Node.js 的异步能力，Node.js 会起多个线程，其中一个主线程运行事件循环，其它线程为工作线程，
+     来执行耗时任务。
+  2. 在 C++ 里自己起一个线程运行耗时任务。
+
+  一般的异步任务可以用第一种方式完成，但是 Node.js 起的工作线程有限，且还需要运行其它任务，
+  如果需要开更多的线程可以使用第二种方式。
+
+  有时我们不得不用第二种方式，比如我们用一个存在的 C++ 库时，需要监听它从另一个线程发送事件，
+  这种情况就需要用第二种方式来将消息发送到 Node.js 的主线程。
+
+  下面来介绍这两种方法具体怎么做。
+
+* 使用 Node.js 的工作线程
+
+  [[https://github.com/nodejs/node-addon-api.git][node-addon-api]] 提供了 AsyncWorker 这个抽象类来完成异步任务，AsyncWorker 的流程如下图所示：
+
+  #+begin_src plantuml :file ../images/nodejs_addon_async_operations.png
+    start
+    :New AsyncWorker;
+    ->
+    :调用 Queue;
+    -> Node.js 调用
+    :执行 OnExecute;
+    if (执行是否成功) then (成功)
+            :执行 OnOK;
+    else (失败)
+            :执行 OnError;
+    endif
+    :执行完成;
+    if (调用 SupressDestruct) then (是)
+            :执行完成;
+    else (否)
+            :delete AsyncWorker;
+    endif
+    end
+  #+end_src
+
+  #+RESULTS:
+  [[file:../images/nodejs_addon_async_operations.png]]
+
+** 代码
+   #+begin_src c++
+   #include <napi.h>
+
+unsigned long long Fibonacci(int n) {
+    unsigned long long a = 0, b = 1;
+    for (int i = 0; i < n; i++) {
+        unsigned long long tmp = a;
+        a = b;
+        b = tmp + b;
+    }
+    return a;
+}
+
+class FibonacciAsyncWorker : public Napi::AsyncWorker {
+public:
+    FibonacciAsyncWorker(Napi::Function& callback, int n)
+            : AsyncWorker(callback), n_(n) {}
+
+    void Execute() override {
+        result = Fibonacci(n_);
+    }
+
+    void OnOK() override {
+        Callback().Call({Env().Null(), Napi::Number::New(Env(), result)});
+    }
+
+private:
+    int n_;
+    unsigned long long result;
+};
+
+Napi::Value ExportFibonacci(const Napi::CallbackInfo& info) {
+    int n = info[0].As<Napi::Number>();
+    Napi::Function callback = info[1].As<Napi::Function>();
+    FibonacciAsyncWorker* worker = new FibonacciAsyncWorker(callback, n);
+    worker->Queue();
+    return Napi::String::New(info.Env(), "start calc fibonacci");
+}
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    exports["runFibonacciWorker"] = Napi::Function::New(env, ExportFibonacci, std::string("runFibonacciWorker"));
+    return exports;
+}
+
+NODE_API_MODULE(fibonacci, Init);
+
+   #+end_src
+
+#+begin_src javascript
+const fibonacci = require("./build/fibonacci.node")
+
+message = fibonacci.runFibonacciWorker(20, (error, result) => {
+    if (error) {
+        console.log("worker return error")
+    } else {
+        console.log("result: ", result)
+    }
+})
+
+console.log(message)
+
+#+end_src
+
+输出结果如下：
+
+#+begin_quote
+start calc fibonacci
+result:  6765
+#+end_quote
+
+* 使用 C++ 线程
+  使用 C++ 线程最关键的还是任务执行完成后如何调用 Node.js 的回调函数，同样  [[https://github.com/nodejs/node-addon-api.git][node-addon-api]]
+  提供了 ThreadSafeFunction 这个类来完成 C++ 线程和 Node.js 主线程的通信。
+
+  =ThreadSafeFunction::New()= 会创建一个持久的引用对象，这个对象会有一个 JavaScript 回调函数，
+  这个函数可以被多个线程异步的调用。
+
+  ThreadSafeFunction 在两种情况下会被析构掉：
+  1. 所有用到 =ThreadSafeFunction= 对象的线程都调用了该对象的 =Release()= 方法。
+  2. 调用 =ThreadSafeFunction= 对象的 =BlockingCall= 或 =NonBlockingCall= 方法返回 =napi_closing= 状态。
+
+  =Release()= 方法应该最后被调用，因为它被调用后就不能保证 =ThreadSafeFunction= 没有析构。
+
+** 成员方法
+*** 构造函数
+1. 创建一个空的 =ThreadSafeFunction= 实例
+   #+begin_src c++
+Napi::Function::ThreadSafeFunction();
+   #+end_src
+
+2. 从存在的 =ThreadSafeFunction= 中创建实例
+#+begin_src c++
+Napi::ThreadSafeFunction::ThreadSafeFunction(napi_threadsafe_function tsfn);
+#+end_src
+这样创建的实例只能调用 =Blocking(void*) / NonBlocking(void*)= ，=tsfn= 携带的数据不能再使用。
+
+*** New
+根据传入参数，创建一个实例。
+
+#+begin_src c++
+New(napi_env env,
+    const Function& callback,
+    const Object& resource,
+    ResourceString resourceName,
+    size_t maxQueueSize,
+    size_t initialThreadCount,
+    ContextType* context,
+    Finalizer finalizeCallback,
+    FinalizerDataType* data);
+#+end_src
+
+- =env=: 构造 =ThreadSafeFunction= 的 =napi_env= 环境
+- =callback=: 将从其它线程调用的回调
+- =[optional] resource=: 和异步任务关联的对象，该对象传递给可能的 =async_hooks= init 钩子
+- =resourceName=:  资源标识符，用于诊断信息
+- =maxQueueSize=: 队列的最大值，0 表示不限制
+- =initialThreadCount=: 使用此函数的初始线程数量，包括主线程
+- =[optional] context=: 附加数据
+- =[optional]finalizeCallback=: =ThreadSafeFunction= 析构时执行的回调，这个回调在主线程进行
+- =[optional] data=: 传给 =finalizeCallback= 的数据
+
+*** Acquire
+显示的表明一个新的线程将使用 =ThreadSafeFunction= 对象。
+#+begin_src c++
+napi_status Napi::ThreadSafeFunction::Acquire()
+#+end_src
+
+返回值：
+- =napi_ok=: 成功请求
+- =napi_closing=: 请求失败
+
+*** Release
+显示表明当前线程不再使用 =ThreadSafeFunction= 对象。
+#+begin_src c++
+napi_status Napi::ThreadSafeFunction::Release()
+#+end_src
+返回值：
+- =napi_ok=: 成功 release
+- =napi_invalid_arg=: =ThreadSafeFunction= 对象的线程计数为0
+- =napi_generic_failure=: release 时出现错误
+
+*** Abort
+终止 =ThreadSafeFunction= 对象的使用，除了 Release 的所有 API 都会返回 =napi_closing=
+#+begin_src c++
+napi_status Napi::ThreadSafeFunction::Abort()
+#+end_src
+
+*** BlockingCall/NonBlockingCall
+调用 JS 函数，使用阻塞或者非阻塞的机制
+
+- =BlockingCall()=: 将会阻塞直到队列有额外的空间。如果 =maxQueueSize= 为 0, 这个函数不会阻塞。
+- =NonBlockingCall()=: 如果队列已满，返回 =napi_queue_full=
+
+用 =New= 创建的 =ThreadSafeFunction= 只能用下面的重载
+#+begin_src c++
+napi_status Napi::ThreadSafeFunction::BlockingCall(DataType* data, Callback callback) const
+
+napi_status Napi::ThreadSafeFunction::NonBlockingCall(DataType* data, Callback callback) const
+#+end_src
+
+- =[optional] data=: 传递给 =callback= 的数据
+- =[optional] callback=: 在主线程被调用的 C++ 函数。这个 =callback= 会收到 =ThreadSafeFunction= 的
+  JS 回调和数据类型指针作为参数。简单来讲，=bacllback= 的格式为 =void operator()(Napi::Env env, Function jsCallback, DataType* data)= 。
+
+返回值：
+- =napi_ok=: 成功加到队列中
+- =napi_queue_full=: 队列已满
+- =napi_closing=: =ThreadSafeFunction= 不再接受调用
+- =napi_invalid_arg=: =ThreadSafeFunction= 已经关闭
+- =napi_generic_faulure=: 出现错误
+
+** 代码
+
+#+begin_src c++
+#include <napi.h>
+#include <thread>
+
+std::thread native_thread;
+Napi::ThreadSafeFunction tsfn;
+
+unsigned long long Fibonacci(int n) {
+    unsigned long long a = 0, b = 1;
+    for (int i = 0; i < n; i++) {
+        unsigned long long tmp = a;
+        a = b;
+        b = tmp + b;
+    }
+    return a;
+}
+
+Napi::Value ExportFibonacci(const Napi::CallbackInfo& info) {
+    int n = info[0].As<Napi::Number>();
+    Napi::Function callback = info[1].As<Napi::Function>();
+
+    // 创建一个 ThreadSafeFunction
+    tsfn = Napi::ThreadSafeFunction::New(
+        info.Env(),
+        callback, // js 的回调
+        "Resource name",
+        0, // 无限制
+        1, //
+        [](Napi::Env) {
+            native_thread.join();
+        });
+
+    native_thread = std::thread([n]{
+        auto callback = [](Napi::Env env, Napi::Function js_callback, unsigned long long* result) {
+            js_callback.Call({env.Null(), Napi::Number::New(env, *result)});
+            delete result;
+        };
+        unsigned long long* value = new unsigned long long(Fibonacci(n));
+
+        napi_status status = tsfn.BlockingCall(value, callback);
+        if (status != napi_ok) {
+            // 处理错误
+
+        }
+        tsfn.Release();
+    });
+
+    return Napi::String::New(info.Env(), "start calc fibonacci with native thread");
+}
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    exports["runFibonacciWorker"] = Napi::Function::New(env, ExportFibonacci, std::string("runFibonacciWorker"));
+    return exports;
+}
+
+NODE_API_MODULE(fibonacci, Init);
+
+#+end_src

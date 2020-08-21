@@ -1,0 +1,92 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 用 VS 编译 QT
+#+DATE: 2020-08-08
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS:
+#+HUGO_CATEGORIES:
+#+HUGO_DRAFT: false
+
+* 编译环境
+- VS2017 / VS2019
+- perl
+- python3
+
+* 获取源码
+为了方便，我们直接下载打包好的代码，在 https://mirrors.bfsu.edu.cn/qt/official_releases/qt/5.15/5.15.0/single/
+下载 =qt-everywhere-src-5.15.0.zip= 并解压到一个目录。我这里解压到了 =D:/Project/qt-everywhere-src-5.15.0= 这个目录。
+
+
+#+DOWNLOADED: screenshot @ 2020-08-08 10:45:55
+[[file:../images/获取源码/2020-08-08_10-45-55_screenshot.png]]
+
+* 理解 configure
+  configure 简单来说是一个命令行工具，用来指定编译选项，然后根据这些编译选项生成 makefile 文件。
+
+** 三个目录
+   在构建之前我们需要知道三个目录：源码目录，构建目录，安装目录
+   - 源码目录：就是我们下载的源码根目录
+   - 构建目录：构建过程中生成文件的目录，一般是运行 configure 工具的目录
+   - 安装目录：构建成功后库和头文件的安装目录。在 configure 时 -prefix DIR 指定
+
+   构建目录最好不要在源码目录里面。
+
+   我这里在源码的同级目录新建一个 =qt-debug-build= 目录作为构建目录， 新建一个 =qt-debug-install=
+   作为对应的安装目录。
+
+** 模块和功能
+   qt5 是模块化架构，我们可以用 configure 的 -skip 选项排除一些我们不需要的模块，节省编译时间。
+   比如我们如果不需要 NFC 和蓝牙功能，就可以用 =-skip qtconnectivity=  排除对应的 qtconnectivity 模块。
+
+
+   我们也可以在编译时排除一些功能，在 configure 时用 =-no-feature-xxx= 选项就可以排除 xxx 功能。
+   比如我们不想编译 windeployqt 这个工具，在 configure 时就可以加上 =-no-feature-windeployqt= 。
+   =-list-features= 选项可以列出所有的功能。
+
+** 三方库
+   qt 源码中包括一些其它的库，我们可以用 =-qt= 或 =-system= 选择使用 qt 的版本或者系统的版本。
+
+   比如我们用 qt 的 zlib 库，用 =-qt-zlib= 选项，=-system-zlib= 用系统的库。
+
+
+** 其它选项
+   - =-opensource= 构建开源版本
+   - =-confirm-license= 自动接受协议
+   - =-debug/-release= 构建 debug / release 版本，默认是 release
+   - =-shared/-static= 构建 动态库/静态库， 默认是动态库
+   - =-make/-nomake= 构建/不要构建某一个部分，如 =-nomake tests= 不要构建测试代码
+
+
+   更多选项可以通过 =-h= 查看帮助
+
+   上面的内容都是在 qt 的官方文档获取到的，要想了解更多，可以直接访问 https://doc.qt.io/qt-5/configure-options.html
+
+* 开始构建
+  我用的是 VS2017
+
+  - 首先打开 =适用于 VS2017 x64 本机工具命令提示= 的命令行，用这个，我们就可以不要配置 vs 相关的环境变量了。
+  进入到上面提到构建目录 =qt-debug-build=
+
+  #+DOWNLOADED: screenshot @ 2020-08-08 11:17:17
+  [[file:../images/开始构建/2020-08-08_11-17-17_screenshot.png]]
+
+  - 执行 configure 脚本，看了上面对 configure 的说明，下面这行 configure 脚本应该很容易理解
+
+     #+begin_src shell
+       ..\qt-everywhere-src-5.15.0\configure -prefix "D:\Project\qt-debug-install" -debug -confirm-license -opensource -qt-sqlite -qt-zlib -qt-libpng -qt-libjpeg -nomake tests -no-compile-examples -nomake examples
+     #+end_src
+
+     从 Configure Summary 中我们可以看到编译相关的内容，如编译器版本，C++ 标准，支持的 feature 等。
+
+     #+DOWNLOADED: screenshot @ 2020-08-08 11:41:38
+     [[file:../images/开始构建/2020-08-08_11-41-38_screenshot.png]]
+
+  - 执行 =nmake= ，耐心等待
+
+  - 编译成功后，执行 =namke install= 将编译好的 qt 安装到 =prefix= 指定的位置。
+
+  安装完成后，执行 =qmake --version= 就可以看到我们安装完成的 qmake 了。
+
+#+DOWNLOADED: screenshot @ 2020-08-12 19:09:27
+[[file:../images/开始构建/2020-08-12_19-09-27_screenshot.png]]

@@ -1,0 +1,354 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: glibmm dbus 实现服务端和客户端
+#+DATE: 2020-05-22
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: C++
+#+HUGO_CATEGORIES: C++
+#+HUGO_DRAFT: false
+
+* 简介
+
+dbus 介绍：  [[https://en.wikipedia.org/wiki/D-Bus][维基百科]]
+
+glibmm: glibmm 是 glib 库的 C++ 封装。它的一个子项目 giomm 实现了 dbus 协议。
+通过 giomm 我们可以实现 dbus 服务，也可以实现一个 dbus 客户端。
+
+* glibmm dbus 服务端
+** Gio::DBus::own_name
+   实现服务端的一个入口 API 是：=Gio::DBus::own_name= ，它的原型如下：
+#+begin_src c++
+  guint Gio::DBus::own_name   (   BusType     bus_type,
+                                  const Glib::ustring&    name,
+                                  const SlotBusAcquired&      bus_acquired_slot = SlotBusAcquired(),
+                                  const SlotNameAcquired&     name_acquired_slot = SlotNameAcquired(),
+                                  const SlotNameLost&     name_lost_slot = SlotNameLost(),
+                                  BusNameOwnerFlags   flags = Gio::DBus::BUS_NAME_OWNER_FLAGS_NONE
+      )
+#+end_src
+
+own_name 在指定的 bus_type 请求 一个 name, 当 name 被 acquire 时，name_acquired_slot 被调用，
+当 name lost 时，name_lost_slot 被调用。如果不再使用这个 name, 调用 =unown_name= 。
+
+对于同一个 name, 在调用 =unown_name= 之前不要多次调用 =own_name= ，只有第一次调用有效。
+
+我们必须在 =bus_acquired_slot= 中注册 dbus 对象。
+
+** Gio::DBus::Connection::register_object
+   注册一个 dbus 对象，必须在 =own_name= 的 bus_acquired_slot 中调用，它的原型如下：
+#+begin_src c++
+
+  guint Gio::DBus::Connection::register_object    (   const Glib::ustring&    object_path,
+                                                      const Glib::RefPtr< InterfaceInfo >&    interface_info,
+                                                      const InterfaceVTable&      vtable
+      )
+#+end_src
+
+- =object_path= 是对象路径
+- =interface_info= 是接口信息，有 xml 文件声明；
+- =vtable= 是用于处理D-Bus接口的属性和方法调用的虚拟表。
+
+** Gio::DBus::InterfaceInfo
+   存储 dbus 接口信息，一般从 xml 文件获取
+
+** Gio::DBus::InterfaceVTable
+   InterfaceVTable 的实例必须是全局的，即它的生命周期和程序的生命周期一样长。
+   其它的任何使用方法都有可能导致内存泄漏，如声明一个局部的对象。
+
+   构造函数：
+   #+begin_src c++
+     Gio::DBus::InterfaceVTable::InterfaceVTable  (   const SlotInterfaceMethodCall&      slot_method_call,
+                                                      const SlotInterfaceGetProperty&     slot_get_property = SlotInterfaceGetProperty(),
+                                                      const SlotInterfaceSetProperty&     slot_set_property = SlotInterfaceSetProperty()
+         )
+   #+end_src
+
+   - =slot_method_call= ： 当方法被调用时。
+   - =slot_get_property= ：当获取属性时。
+   - =slot-set_property= ：当设置属性时。
+
+** 例子
+   #+begin_src c++
+     #include <giomm.h>
+     #include <glibmm.h>
+
+     // 接口声明的 xml 文件
+     static const char interfaceXml0[] = R"XML_DELIMITER(<?xml version="1.0" encoding="UTF-8" ?>
+     <node name="/org/foo/Bar">
+         <interface name="org.foo.Bar">
+             <method name="Baz">
+                 <arg name="state" type="u" direction="out"/>
+             </method>
+         </interface>
+     </node>
+     )XML_DELIMITER";
+
+
+     //  方法调用
+     void OnInterfaceMethodCall(
+             const Glib::RefPtr<Gio::DBus::Connection>& connection,
+             const Glib::ustring& sender, const Glib::ustring& object_path,
+             const Glib::ustring& interface_name, const Glib::ustring& method_name,
+             const Glib::VariantContainerBase& parameters,
+             const Glib::RefPtr<Gio::DBus::MethodInvocation>& invocation) {
+
+         // 调用 Baz 方法
+         if (method_name.compare("Baz") == 0) {
+             // 方法的实现
+             std::vector<Glib::VariantBase> vlist;
+             auto var0 =  Glib::Variant<guint32>::create(30);
+             vlist.push_back(var0);
+             // 返回一个 30
+             invocation->return_value(
+                     Glib::Variant<Glib::VariantBase>::create_tuple(vlist));
+         }
+     }
+
+     // 设置属性
+     bool OnInterfaceSetProperty(
+             const Glib::RefPtr<Gio::DBus::Connection>& connection,
+             const Glib::ustring& sender, const Glib::ustring& object_path,
+             const Glib::ustring& interface_name, const Glib::ustring& property_name,
+             const Glib::VariantBase& value) {
+         return true;
+     }
+
+     // 获取属性
+     void OnInterfaceGetProperty(
+             Glib::VariantBase& property,
+             const Glib::RefPtr<Gio::DBus::Connection>& connection,
+             const Glib::ustring& sender, const Glib::ustring& object_path,
+             const Glib::ustring& interface_name,
+             const Glib::ustring& property_name) {}
+
+     int main(int argc, char** argv) {
+         // 初始化 giomm 和 glibmm, 不需要再调用 Glib::init()
+         Gio::init();
+
+         // 创建一个事件循环
+         Glib::RefPtr<Glib::MainLoop> ml = Glib::MainLoop::create();
+
+         Glib::RefPtr<Gio::DBus::NodeInfo> introspection_data;
+         guint registered_object_id = 0;
+
+         // 请求 name ”org.foo.Bar"
+         guint connection_id = Gio::DBus::own_name(
+                 Gio::DBus::BUS_TYPE_SESSION, "org.foo.Bar",
+                 [&](const Glib::RefPtr<Gio::DBus::Connection>& connection,
+                     const Glib::ustring& /* name */) {
+                     // 在这里注册对象
+                     try {
+                         // 根据 xml 获取 dbus 接口数据
+                         introspection_data =
+                                 Gio::DBus::NodeInfo::create_for_xml(interfaceXml0);
+                     } catch (const Glib::Error& ex) {
+                         g_warning("Unable to create introspection data for %s",
+                                   ex.what().c_str());
+                         ml->quit();
+                     }
+
+                     // 定义虚拟的表
+                     // 由于必须要定义全局的实例，可以只 new, 不 delete ，程序结束后会释放内存
+                     Gio::DBus::InterfaceVTable* interface_vtable =
+                             new Gio::DBus::InterfaceVTable(
+                                     sigc::ptr_fun(&OnInterfaceMethodCall),
+                                     sigc::ptr_fun(&OnInterfaceGetProperty),
+                                     sigc::ptr_fun(&OnInterfaceSetProperty));
+
+                     try {
+                         // 注册对象
+                         registered_object_id = connection->register_object(
+                                 "/org/foo/Bar",
+                                 introspection_data->lookup_interface("org.foo.Bar"),
+                                 ,*interface_vtable);
+                     } catch (const Glib::Error& ex) {
+                         g_warning("Unable to create introspection data for %s",
+                                   ex.what().c_str());
+                         ml->quit();
+                     }
+                 },
+                 [&](const Glib::RefPtr<Gio::DBus::Connection>& /* connection */,
+                     const Glib::ustring& /* name */) {
+                     g_print("Name acquired.\n");
+                 },
+                 [&](const Glib::RefPtr<Gio::DBus::Connection>& connection,
+                     const Glib::ustring& /* name */) {
+                     g_print("Name lost.\n");
+                     // 取消注册
+                     connection->unregister_object(registered_object_id);
+                     ml->quit();
+                 });
+
+         // 跑起事件循环
+         ml->run();
+
+         // 不再使用
+         Gio::DBus::unown_name(connection_id);
+
+         return 0;
+     }
+
+   #+end_src
+
+* glibmm dbus 客户端
+  调用 dbus 方法可以 用 =Gio::DBus::Proxy= ，用这个类很简单，这里直接给个带注释的例子。
+
+  #+begin_src c++
+    #include <giomm.h>
+    #include <glibmm.h>
+
+    Glib::RefPtr<Gio::DBus::Proxy> proxy;
+
+    void OnBazFinished(const Glib::RefPtr<Gio::AsyncResult>& result) {
+        // 调用完成，从 result 中返回值
+        auto wrapped = proxy->call_finish(result);
+        Glib::Variant<guint32> v;
+        wrapped.get_child(v, 0);
+        g_print("result: %d\n", v.get());
+    }
+
+    // Proxy 创建成功
+    void ProxyCreated(const Glib::RefPtr<Gio::AsyncResult> result) {
+        g_print("Proxy created\n");
+
+        // 获取 proxy
+        proxy = Gio::DBus::Proxy::create_for_bus_finish(result);
+
+        // 调用 Baz 方法
+        // 异步调用，返回时回调 OnBazFinished
+        proxy->call("Baz", sigc::ptr_fun(OnBazFinished));
+    }
+
+    int main() {
+        // 初始化 gio 和 glib
+        Gio::init();
+
+        // 创建一个 dbus proxy, 创建成功后回调 ProxyCreated
+        Gio::DBus::Proxy::create_for_bus(Gio::DBus::BUS_TYPE_SESSION,
+                                         "org.foo.Bar",
+                                         "/org/foo/Bar",
+                                         "org.foo.Bar",
+                                         sigc::ptr_fun(&ProxyCreated));
+        Glib::RefPtr<Glib::MainLoop> ml = Glib::MainLoop::create();
+        ml->run();
+
+        return 0;
+    }
+
+  #+end_src
+* 代码生成工具 gdbus-codegen-glibmm3
+  我们每写一个 dbus 服务，都要写很多的重复代码，[[https://github.com/Pelagicore/gdbus-codegen-glibmm][gdbus-codegen-glibmm3]] 可以从 xml 中生成
+  一些代码，我们只需要继承类并实现业务方法就可以写出 dbus 服务。
+
+** 生成代码
+   首先写一个 xml 文件声明 dbus 接口
+   #+begin_src xml
+     <?xml version="1.0" encoding="UTF-8" ?>
+     <node name="/org/foo/Bar">
+         <interface name="org.foo.Bar">
+             <method name="Baz">
+                 <arg name="state" type="u" direction="out"/>
+             </method>
+         </interface>
+     </node>
+
+   #+end_src
+
+   用 gdbus-codegen-glibmm3 生成代码。
+   #+begin_src shell
+   gdbus-codegen-glibmm3 --generate-cpp-code=gen/bar bar.xml
+   #+end_src
+
+   它会生成下面的几个文件：
+   #+begin_quote
+   bar_common.cpp  bar_common.h
+   bar_proxy.cpp  bar_proxy.h
+   bar_stub.cpp  bar_stub.h
+   #+end_quote
+
+   stub 结尾的是写服务端需要。
+   proxy 结尾的是写客户端需要。
+   common 结尾的是服务端和客户端都需要。
+
+** 根据生成的代码写服务端
+   #+begin_src c++
+     #include "gen/bar_stub.h"
+
+     // 继承桩代码，实现 Bar 方法
+     class BarImpl : public org::foo::BarStub {
+     public:
+         void Baz(MethodInvocation& invocation) override {
+             // 返回 30
+             invocation.ret(30);
+         }
+     };
+
+     int main() {
+         Gio::init();
+         Glib::RefPtr<Glib::MainLoop> ml = Glib::MainLoop::create();
+
+         // 定义对象
+         BarImpl bi;
+         guint connection_id = Gio::DBus::own_name(
+                 Gio::DBus::BUS_TYPE_SESSION, "org.foo.Bar",
+                 [&](const Glib::RefPtr<Gio::DBus::Connection>& connection,
+                     const Glib::ustring& /* name */) {
+                     g_print("Connected to bus.\n");
+                     // 注册对象
+                     if (bi.register_object(connection, "/org/foo/Bar") == 0)
+                         ml->quit();
+                 },
+                 [&](const Glib::RefPtr<Gio::DBus::Connection>& /* connection */,
+                     const Glib::ustring& /* name */) {
+                     g_print("Name acquired.\n");
+                 },
+                 [&](const Glib::RefPtr<Gio::DBus::Connection>& /* connection */,
+                     const Glib::ustring& /* name */) {
+                     g_print("Name lost.\n");
+                     ml->quit();
+                 });
+
+         ml->run();
+
+         Gio::DBus::unown_name(connection_id);
+         return 0;
+     }
+
+   #+end_src
+
+
+** 用生成的代码写客户端
+
+   #+begin_src c++
+     #include "gen/bar_proxy.h"
+
+     Glib::RefPtr<org::foo::BarProxy> proxy;
+
+     void OnBazFinished(const Glib::RefPtr<Gio::AsyncResult> &result) {
+         guint32 value;
+         proxy->Baz_finish(value, result);
+         g_print("value: %d\n", value);
+     }
+
+     void ProxyCreated(const Glib::RefPtr<Gio::AsyncResult> result) {
+         proxy = org::foo::BarProxy::createForBusFinish(result);
+         proxy->Baz(sigc::ptr_fun(&OnBazFinished));
+     }
+
+     int main(int argc, char **argv) {
+         Gio::init();
+
+         org::foo::BarProxy::createForBus(Gio::DBus::BUS_TYPE_SESSION,
+                                          Gio::DBus::PROXY_FLAGS_NONE,
+                                          "org.foo.Bar",
+                                          "/org/foo/Bar",
+                                          sigc::ptr_fun(&ProxyCreated));
+
+         Glib::RefPtr<Glib::MainLoop> ml = Glib::MainLoop::create();
+         ml->run();
+
+         return 0;
+     }
+
+   #+end_src

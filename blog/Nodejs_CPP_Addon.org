@@ -1,0 +1,164 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: Node.js C++ 插件 (1)
+#+DATE: 2020-03-27
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Node.js
+#+HUGO_CATEGORIES: Node.js
+#+HUGO_DRAFT: false
+
+* 简介
+Node.js 插件是一个 C++ 写的动态链接库。Node.js 中的 =require()= 可以直接加载插件
+作为一个 Node.js 模块。插件提供了 Node.js 与 C++ 库之间的接口。
+
+实现插件有三种方式：N-API, nan 和直接用内部的 V8, libuv 以及 Node.js 库。官方推荐
+使用 N-API 实现插件，除非要用到 N-API 没有暴露出来的接口。
+
+** N-API
+N-API 是用于构建 native Node.js 插件一系列 C API 。它独立于 JavaScript 运行时
+（如 V8 ），由 Node.js 团队维护。
+
+N-API 在 Node.js 版本之间是 ABI 稳定的。意味着你只需要编译一次就可以在后续的
+Node.js 版本运行。
+
+** node-addon-api
+node-addon-api 将 N-API 封装成 C++ 接口，开发起来更加方便和快速。
+
+
+参考文章：
+
+[[https://xcoder.in/2017/07/01/nodejs-addon-history/][从暴力到 NAN 再到 NAPI——Node.js 原生模块开发方式变迁]]
+
+[[https://github.com/nodejs/node-addon-api][node-addon-api]]
+
+[[https://nodejs.org/api/n-api.html][N_API]]
+
+* HelloWorld
+下面我们用 node-addon-api 写一个 计算 Fibonacci 插件，实现等同于下面这个 JavaScript
+函数。
+
+#+BEGIN_SRC js
+function fibonacci(n) {
+    var a = 0, b = 1
+    for (var i = 0; i < n; i++) {
+        var tmp = a
+        a = b
+        b = tmp + b
+    }
+    return a
+}
+#+END_SRC
+
+** 步骤
+首先我们新建一个目录叫 Fibonacci ，并添加一个 package.json 文件。
+
+#+BEGIN_SRC json
+{
+    "name": "fibonacci",
+    "version": "1.0.0",
+    "devDependencies": {
+        "cmake-js": "latest",
+        "node-addon-api": "latest"
+    }
+}
+
+#+END_SRC
+
+node-addon-api 就是我们开发需要的 API 。
+
+[[https://github.com/cmake-js/cmake-js/][CMake.js]] 是一个基于 CMake 的构建 Node.js 插件的工具。所以我们需要写一个
+CMakeLists.txt 。可以通过 npm 安装一个全局的 CMake.js
+
+#+BEGIN_SRC shell
+npm install -g cmake-js
+#+END_SRC
+
+#+BEGIN_SRC
+cmake_minimum_required(VERSION 3.7)
+project (fibonacci)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+## include
+## CMake.js 会收集头文件路径到 CMAKE_JS_INC 中
+include_directories(${CMAKE_JS_INC})
+
+
+add_library(${PROJECT_NAME} SHARED "")
+
+## CMake.js 
+set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_JS_INC})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_JS_LIB})
+
+## node-addon-api
+execute_process(COMMAND node -p "require('node-addon-api').include"
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE NODE_ADDON_API_DIR
+  )
+string(REPLACE "\n" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
+string(REPLACE "\"" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${NODE_ADDON_API_DIR})
+
+target_sources(${PROJECT_NAME} PRIVATE
+  fibonacci.cpp)
+
+#+END_SRC
+
+在 fibonacci.cpp 中写上我们的插件代码。
+
+#+BEGIN_SRC c++
+#include <napi.h>
+
+unsigned long long Fibonacci(int n) {
+    unsigned long long a = 0, b = 1;
+    for (int i = 0; i < n; i++) {
+        unsigned long long tmp = a;
+        a = b;
+        b = tmp + b;
+    }
+    return a;
+    
+}
+
+Napi::Value ExportFibonacci(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (info.Length() < 1) {
+        Napi::TypeError::New(env, "wrong number of arguments").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    if (!info[0].IsNumber()) {
+        Napi::TypeError::New(env, "wrong type of arguments").ThrowAsJavaScriptException();
+    }
+    auto n = info[0].As<Napi::Number>().Int32Value();
+    auto result = Fibonacci(n);
+
+    Napi::Number num = Napi::Number::New(env, result);
+    return num;
+}
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    exports.Set(Napi::String::New(env, "fibonacci"), Napi::Function::New(env, ExportFibonacci));
+    return exports;
+}
+
+NODE_API_MODULE(fibonacci, Init);
+
+#+END_SRC
+
+然后用 CMake.js 编译我们的代码，在 Fibonacci 目录执行下面的命令。
+#+BEGIN_SRC shell
+cmake-js configure
+cmake-js build
+#+END_SRC
+最后会在 =build/Release= 目录下生成 =fibonacci.node=
+
+现在就可以在 JavaScript 中 =require= 这个插件
+
+#+BEGIN_SRC js
+const fibonacci = require("./build/Release/fibonacci.node")
+
+console.log(fibonacci.fibonacci(10))
+
+#+END_SRC

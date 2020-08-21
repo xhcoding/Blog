@@ -1,0 +1,67 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: qt 信号连接 lambda 注意事项
+#+DATE: 2020-04-26
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Qt
+#+HUGO_CATEGORIES: Qt
+#+HUGO_DRAFT: false
+
+* this 指针
+如果 lambda 在一个对象内部并且捕获了 this ，connect 的第三个参数必须写上 this ，防止 lambda 访问
+内存释放了的 this 指针。
+
+#+begin_src c++
+connect(a, &A::signal, this, [this]{})
+// 第三个参数非常重要
+#+end_src
+
+* 原始指针
+原始指针必须以值捕获，并且确保指针的生命周期比 connect 的生命周期长
+
+#+begin_src c++
+status int v;
+autp p = & v;
+connect(a, &A::signal, [p]{})
+#+end_src
+
+* 引用捕获
+引用捕获和原始指针一样
+
+* 没有继承自 QObject 并且不能拷贝的对象
+必须以值捕获它们的 shared_ptr
+
+#+begin_src c++
+std::shared_ptr<E> e { new E };
+QSharedPointer<F> f { new F; }
+connect(..., [e,f]{});
+#+end_src
+
+* 同一个线程的 QObject
+以 QPointer 捕获，且在 lambda 内使用时必须检查
+
+#+begin_src c++
+QPointer<QObject> g { this->parent(); }
+connect(..., [g]{ if (g) ... });
+#+end_src
+
+* 另一个线程的 QObject
+
+必须以 shared_ptr 或者 weak_ptr 捕获，并且它的 parent 必须设为 nullptr
+
+#+begin_src c++
+class I : public QObject {
+  ...
+  ~I() { setParent(nullptr); }
+};
+
+std::shared_ptr<I> i { new I };
+connect(..., [i]{ ... });
+
+std::weak_ptr<I> j { i };
+connect(..., [j]{
+  auto jp = j.lock();
+  if (jp) { ... }
+});
+#+end_src

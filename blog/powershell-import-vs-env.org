@@ -1,0 +1,56 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: powershell 中导入 vs 环境变量
+#+DATE: 2020-05-23
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Tools
+#+HUGO_CATEGORIES: Tools
+#+HUGO_DRAFT: false
+
+代码：
+
+#+begin_src powershell
+  # 查找 vs 路径
+  $vswhere=-Join(
+      $env:PROGRAMFILES,
+      " (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+      )
+  $vsinstalldir = &$vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
+
+  if ($vsinstalldir -and (test-path "$vsinstalldir\Common7\Tools\vsdevcmd.bat")) {
+    & "${env:COMSPEC}" /s /c "`""$vsinstalldir\Common7\Tools\vsdevcmd.bat"`" -no_logo && set" | foreach-object {
+      $name, $value = $_ -split '=', 2
+      set-content env:\"$name" $value
+    }
+  }
+  # only for vs2017
+  $msbuild=-Join(
+      $vsinstalldir,
+      "\MSBuild\15.0\Bin\MSBuild.exe")
+
+  # 查找 win10 sdk 版本
+  # 读取注册表的值
+  function Get-RegistryValue{
+      [CmdletBinding()] param (
+          [Parameter(Mandatory = $true)] [string] $key,
+          [Parameter(Mandatory = $true)] [string] $value
+      )
+      (Get-ItemProperty $key $value).$value
+  }
+
+  $win10sdk_version = Get-RegistryValue 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0' ProductVersion
+  $win10sdk_version = -Join($win10sdk_version, ".0")
+
+  # 取代sdk版本
+  function Replace-Win10Sdk {
+      [CmdletBinding()] param (
+          [Parameter(Mandatory = $true)] [string] $target_file,
+          [Parameter(Mandatory = $true)] [string] $target_version
+      )
+      $data = Get-Content -Path $target_file -Encoding UTF8
+      $data = $data -replace '(<WindowsTargetPlatformVersion>)[0-9\.]+(</WindowsTargetPlatformVersion>)', "`${1}$target_version`${2}"
+      Out-File -FilePath $target_file -Encoding UTF8 -Force  -InputObject $data
+  }
+
+#+end_src

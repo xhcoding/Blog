@@ -16,15 +16,15 @@ deepin 上的 gcc 和 llvm+clang 版本都太低了，所以要想编译 ccls，
 1. 从 gcc 的官网（ https://gcc.gnu.org/ ）下载最新的源码并解压。
 2. 安装依赖
    #+BEGIN_SRC shell
-cd gcc
-./contrib/download_prerequisites
+   cd gcc
+   ./contrib/download_prerequisites --
    #+END_SRC
 
 3. 编译
    #+BEGIN_SRC shell
-./configure --prefix=/home/xhcoding/Opt/gcc-9.1 --enable-checking=release --enable-languages=c,c++ --disable-multilib
-make -j8
-make install
+   ./configure --prefix=/home/xhcoding/Opt/gcc --enable-checking=release --enable-languages=c,c++ --disable-multilib
+   make -j8
+   make install
    #+END_SRC
 
    --prefix 是安装目录
@@ -32,28 +32,28 @@ make install
 ** 编译 llvm
 1. clone 源码
    #+BEGIN_SRC shell
-git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/llvm.git
-git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/clang.git llvm/tools/clang
+     git clone https://github.com/llvm/llvm-project.git
    #+END_SRC
 
 2. 编译
    需要 Ninja ，使用刚出炉的 gcc 作为编译器
    #+BEGIN_SRC shell
-cd llvm
-cmake -H. -BRelease -G Ninja -DCMAKE_INSTALL_PREFIX=/home/xhcoding/Opt/llvm -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/home/xhcoding/Opt/gcc-9.1 -DCMAKE_CXX_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/g++ -DCMAKE_C_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/gcc
-ninja -C Release
+     cd llvm-project
+     cmake -Hllvm -BRelease -G Ninja -DCMAKE_INSTALL_PREFIX=/home/xhcoding/Opt/llvm -DCMAKE_PREFIX_PATH=/home/xhcoding/Opt/gcc -DCMAKE_CXX_COMPILER=/home/xhcoding/Opt/gcc/bin/g++ -DCMAKE_CXX_COMPILER=/home/xhcoding/Opt/gcc/bin/gcc  -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang-tools-extra"
+
+     ninja -C Release
    #+END_SRC
 
 ** 编译 ccls
 1. clone 源码
    #+BEGIN_SRC shell
-git clone --recursive https://github.com/MaskRay/ccls
+   git clone --recursive https://github.com/MaskRay/ccls
    #+END_SRC
 2. 编译
    #+BEGIN_SRC shell
-cmake -H. -BRelease -G Ninja -DCMAKE_INSTALL_PREFIX=/home/xhcoding/Opt/ccls -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="/home/xhcoding/Opt/gcc-9.1;/home/xhcoding/Code/llvm/Release;/home/xhcoding/Code/llvm/Release/tools/clang;/home/xhcoding/Code/llvm;/home/xhcoding/Code/llvm/tools/clang" -DCMAKE_CXX_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/g++ -DCMAKE_C_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/gcc
-ninja -C Release
-   #+END_SRC 
+   cmake -H. -BRelease -G Ninja -DCMAKE_INSTALL_PREFIX=/home/xhcoding/Opt/ccls -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="/home/xhcoding/Opt/gcc-9.1;/home/xhcoding/Code/llvm/Release;/home/xhcoding/Code/llvm/Release/tools/clang;/home/xhcoding/Code/llvm;/home/xhcoding/Code/llvm/tools/clang" -DCMAKE_CXX_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/g++ -DCMAKE_C_COMPILER=/home/xhcoding/Opt/gcc-9.1/bin/gcc
+   ninja -C Release
+   #+END_SRC
 
 ** 使用 ccls
 由于 ccls 使用最新的 gcc 编译的，直接运行 ccls 会导致找不到高版本的 glibc 。出现如下错
@@ -81,16 +81,16 @@ MSVC 编译的方法。使用 VS2017 或以上。
 ** 编译 llvm
 1. clone 代码
    #+BEGIN_SRC shell
-git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/llvm.git
-git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/clang.git llvm/tools/clang
+   git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/llvm.git
+   git clone https://mirrors.tuna.tsinghua.edu.cn/git/llvm/clang.git llvm/tools/clang
 
    #+END_SRC
 2. 编译
    #+BEGIN_SRC shell
-cd llvm
-cmake -H. -BRelease -G Ninja -DCMAKE_BUILD_TYPE=Release  -DCMAKE_CXX_COMPILER=cl -DCMAKE_C_COMPILER=cl
-ninja -C Release clangFormat clangFrontendTool clangIndex clangTooling clang
-   #+END_SRC 
+   cd llvm
+   cmake -H. -BRelease -G Ninja -DCMAKE_BUILD_TYPE=Release  -DCMAKE_CXX_COMPILER=cl -DCMAKE_C_COMPILER=cl
+   ninja -C Release clangFormat clangFrontendTool clangIndex clangTooling clang
+   #+END_SRC
 
 ** 编译 ccls
 1. clone 代码
@@ -102,7 +102,7 @@ git clone  --recursive https://github.com/MaskRay/ccls
 #+BEGIN_SRC shell
 cmake -H. -BRelease -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl -DCMAKE_PREFIX_PATH="F:/Code/CCPro/llvm/Release;F:/Code/CCPro/llvm/Release/tools/clang;F:/Code/CCPro/llvm;F:/Code/CCPro/llvm/tools/clang"
 ninja -C Release
-#+END_SRC   
+#+END_SRC
 
 =CMAKE_PREFIX_PATH= 根据实际路径对照修改
 

@@ -1,0 +1,229 @@
+ -*- mode: Org; org-download-image-dir: "../images"; -*-
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 防御式编程实践
+#+DATE: 2020-07-07
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: CS
+#+HUGO_CATEGORIES: CS
+#+HUGO_DRAFT: false
+
+#+begin_quote
+You Can't Write Perfect Software
+#+end_quote
+
+防御式编程对所有可能出现的错误进行防卫性的处理，当错误出现时，该崩溃的让程序崩溃，该记录日志的记录日志。
+这样才能在程序真的出现错误时更加快速的解决错误。
+
+* 断言
+  #+begin_quote
+  如果它不可能发生，用断言确保它不会发生
+  #+end_quote
+
+  断言用在某个条件绝不会发生的检测，比如传入的指针不可能为 =NULL= 。
+  #+begin_src c++
+  void write(char* buf) {
+      assert (buf != NULL);
+  }
+  #+end_src
+
+  当 =buf= 为 =NULL= 的时候，程序直接崩溃。
+
+  断言的结果就是当满足条件时让主动程序结束，不一定要用 assert 。
+
+  #+begin_src c++
+    if (true) {
+        std::cerr << "some error message" << std::endl;
+        abort();
+    }
+  #+end_src
+
+  一个小例子，我们有一个类，它的接口只能在构造它的线程中调用，否则会出现未定义行为。
+  对于这样的一个条件，用 assert 是一个比较好的方式，因为未定义行为就意味着可能会崩溃，
+  一旦崩溃后就很难找到错误的位置。
+
+  #+begin_src c++
+    #include <thread>
+    #include <iostream>
+
+    class Test {
+    public:
+        Test() : thread_id(std::this_thread::get_id()) {}
+
+        // 只能在构造它的线程中调用
+        void Api() {
+            if (thread_id_ != std::this_thread::get_id()) {
+                std::cerr << "can not call this in other thrad!" << std::endl;
+                abort();
+            }
+        }
+
+    private:
+        const std::thread::id thread_id_;
+    };
+  #+end_src
+
+  不要在 assert 里写有副作用的代码， 如：=i++= 。也不要写必须要执行的代码，因为 assert 可能会被关闭。
+
+  带有一些信息的 assert ：
+
+  #+begin_src c++
+    assert(a != b && "some error message")
+  #+end_src
+
+* 异常
+  #+begin_quote
+  将异常用于异常的问题
+  #+end_quote
+
+  在防御式编程这里重点强调捕获异常，而不是使用异常，未捕获的异常会导致程序崩溃。
+
+  一般来讲，在程序中我们应该始终捕获所有异常，并尽可能在离异常近的地方捕获。
+
+  当我们在用一个库的接口时，不要假设接口不会抛出异常，除非接口显示声明了 =noexcept= 。
+  我们不可能在每个接口调用的地方捕获异常，一般做法是在一个入口处捕获所有异常。
+
+  #+begin_src c++
+    using Action = std::function<void(void)>;
+
+    void CatchAllException(const char* action_name, Action action) {
+        try {
+            action();
+        } catch(...) {
+            // log something
+        }
+    }
+
+
+    #define CATCH_ALL_EXCEPTION(ACTION) \
+        CatchAllException(__func__, ACTION)
+
+
+    int main() {
+
+        // 在 入口捕获所有异常
+        CATCH_ALL_EXCPETION([]{
+            // do something
+        });
+    }
+  #+end_src
+
+** 踩过的坑
+   *异常可能出现在想不到的地方* : 之前遇见过一次平时用的日志库抛出异常，之前从来没有想过日志库会抛出异常。
+
+   所以 *捕获所有异常并把异常信息 log 下来* 。
+
+* 资源配平
+  #+begin_quote
+  要有始有终
+  #+end_quote
+
+  在编程的时候，我们需要管理很多资源：内存，文件，线程，定时器，句柄等。
+  在使用这些资源时应该遵循的模式是：分配，使用，释放。
+
+** 堆内存
+   用智能指针 （=std::unique_ptr/std::shared_ptr=） 代替 =new/delete= 。尽可能不要用 =new/delete= ，特别实在多线程环境下。
+
+   对于数组，尽量使用 =std::vector= 和 =std::array= 代替，如果需要动态分配，使用 =std:unique_ptr<T[]>= ，
+   共享使用 =std::shared_ptr<T> sp(new T[10], std::default_delete<T[]>());= 。
+
+   两种智能指针都可以自定义析构时释放资源的函数。
+
+   #+begin_src c++
+     auto customDel = [] (T* t) {
+         // do something
+         delete t;
+     };
+
+     std::unique_ptr<T, decltype(customDel)> p(nullptr, customDel);
+   #+end_src
+
+   #+begin_src c++
+     auto customDel = [](T* t) {
+         // do something
+         delete t;
+     };
+
+     std::shared_ptr<T> sp(new T, customDel);
+   #+end_src
+
+
+   推荐使用 =std::unique_ptr / std::shared_ptr= 初始化智能指针。
+
+   #+begin_src c++
+     auto up = std::make_unique<T>();
+
+     auto sp = std::shared_ptr<T>();
+   #+end_src
+
+** 离开作用域自动释放
+   智能指针也可以用来保证在一个作用域内，分配的资源能够释放，特别是在发生异常时。
+
+   #+begin_src c++
+     {
+         std::unique_ptr<T> up(new T);
+         // 离开作用域会自动 delete t
+     }
+   #+end_src
+
+   同时也可以自定义删除器，删除特定的对象。但是自定义的删除器必须接收相同类型的指针作为对象，
+   有时有些对象的释放只需要调用一个函数，比如 Windows 上的一些句柄对象，对于这种我们可以写一个
+   通用的 RAII 类来处理。
+
+   #+begin_src c++
+     template <typename F>
+     class ScopeGuard {
+     public:
+         explicit ScopeGuard(F&& f) noexcept : func_(std::move(f)) {
+         }
+
+         explicit ScopeGuard(const F& f) noexcept : func_(f) {
+         }
+
+         ScopeGuard(ScopeGuard&& other) noexcept
+             : func_(std::move(other.func_)) {
+         }
+
+         ~ScopeGuard() noexcept {
+             func_();
+         }
+
+         ScopeGuard(const ScopeGuard& ) = delete;
+         ScopeGuard& operator=(const ScopeGuard&) = delete;
+
+     private:
+         F func_;
+     };
+
+     template <typename F>
+     ScopeGuard<typename std::decay<F>::type> MakeScopeGuard(F&& f) {
+         return ScopeGuard<typename std::decay<F>::type>(std::forward<F>(f));
+     }
+   #+end_src
+
+   用法：在离开作用域就会自动关闭句柄
+
+   #+begin_src c++
+     HANDLE handle = CreateFileW(/*...*/);
+     if (handle == INVALID_HANDLE_VALUE) {
+         return;
+     }
+
+     auto guard = MakeScopeGuard([&handle]{
+         CloseHandle(handle);
+     });
+   #+end_src
+
+** 其它
+   如果一个类提供了 =open/close= , =start/stop= 这种成对的方法，一定要成对的调用。
+
+* 错误处理
+  使用一个 API 之前一定要搞清除它可能出现的错误情况。
+
+  比如 =std::future= 的 =get= 方法，它的文档里明确说了，如果 =future.valid()= 返回 =false= 的情况
+  下调用 =get= 方法会产生未定义行为（大多数情况是程序崩溃）。所以我们在使用一个 API 时，
+  我们一定要处理 API 的错误情况。
+
+  比较常见的是用 win32 API 的时候，大多数的 WIN32 API 都会有错误
+  情况，我们一定要处理这种错误情况，至少要 log 下来，当出现问题的时候才可以确定哪里没有问题。

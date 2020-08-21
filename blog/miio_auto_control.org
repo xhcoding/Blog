@@ -1,0 +1,88 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 自动化控制米家智能设备
+#+DATE: 2020-04-26
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: Tools
+#+HUGO_CATEGORIES: Tools
+#+HUGO_DRAFT: false
+
+* 协议
+小米智能设备之间的通信协议早已有大佬总结出来了。详情见：
+https://github.com/OpenMiHome/mihome-binary-protocol
+
+也有大佬根据协议写了一个 Python 库来控制米家智能设备，[python-miio](https://github.com/rytilahti/python-miio)
+
+对于每一台设备，在配对连接后，都会有一个 token，=miio= 库需要这个 token
+和设备的 ip 地址来控制设备，所以我们需要做的就是拿到我们需要控制的智能设备的 token 和 ip。
+
+ip 地址可以在米家 APP 上对应设备的网络信息里查看。
+
+注意：运行代码的设备要和智能设备在同一局域网下
+
+* 获取设备 token
+** 用无需 root 的安卓手机（已验证，可行）
+原理：米家APP 5.4.49 版本有一个小 bug，在日志文件里暴露了设备的 token。
+
+方法：
+1. 卸载新版米家 APP ，安装米家APP 5.4.49 版本，APK 文件 google 就能
+找到。
+2. 登录小米设备，正常连接配对设备。
+3. 使用文件资源管理器导航到 /sdcard/SmartHome/logs/plug_DeviceManager
+，打开名为 yyyy-mm-dd.txt 的日志文件
+4. 搜索 =token= 即可找到对应设备的 token
+
+** 注意
+- 获取到的设备 token 请及时配置，如重置家中的网络，设备 token 会发生变更
+- 如果发现上面的方法拿不到 token，可以去 [Discover Device](https://python-miio.readthedocs.io/en/latest/discovery.html#device-discovery) 看看有没有最新的方法
+
+* API 使用
+** 获取设备对应模块名
+#+begin_src python
+import miio
+ip = "192.168.137.145"
+token = "*****"
+d = miio.device.Device(ip=ip, token=token)
+print(s.info())
+#+end_src
+
+我们可以看到下面的输出：
+#+begin_quote
+
+     chuangmi.plug.m3 v1.3.9_0006 (5C:E5:0C:0B:9E:D1) @ 192.168.137.145 - token: *****
+#+end_quote
+
+说明这是一个 chuangmi_plug，去 [API文档](https://python-miio.readthedocs.io/en/latest/miio.html#module-miio.chuangmi_plug)
+中找到对应的用法。
+
+下面是一个智能插座的例子：
+
+#+begin_src python
+
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from miio.chuangmi_plug import ChuangmiPlug
+
+# 小米智能插座的 ip 地址，保证和脚本运行的机器处在同一局域网下
+ip = "192.168.137.226"
+
+# 获取的 token
+token = "f5b94707b729d952aff9b21e1e9738ec"
+
+# 初始化设备
+device = ChuangmiPlug(ip=ip, token=token)
+
+# 获取设备状态
+device_status = device.status()
+
+print(device_status.power)
+
+# 关闭设备， result = ['ok'] 表示成功
+result = device.off()
+
+# 打开设备，result = ['ok'] 表示成功
+result = device.off()
+
+#+end_src

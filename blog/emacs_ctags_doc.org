@@ -1,0 +1,77 @@
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: emacs + ctags 实践
+#+DATE: 2020-07-11
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: emacs
+#+HUGO_CATEGORIES: emacs
+#+HUGO_DRAFT: false
+
+* ctags 常用命令行选项
+
+本文的 ctags 用的是 [[https://docs.ctags.io/en/latest/index.html][Universal-ctags]]
+
+命令格式：
+#+begin_src shell
+ctags [options] [source_file(s)]
+#+end_src
+
+| 选项                        | 说明                                                       |
+|-----------------------------+------------------------------------------------------------|
+| --list-languages            | 列出所有支持的语言                                         |
+| -D macro=definition         | 定义 C 预处理宏                                            |
+| -e,--output-format=etags    | emacs 使用这种格式的 tags 文件                             |
+| -f tagfile                  | 生成的 tag 文件，默认是 tags ，etags 默认是 TAGS           |
+| -G,--guess-language-eagerly | 根据文件内容猜测语言                                       |
+| -R, --recurse               | 递归查找文件                                               |
+| -L <file>                   | 一个文件，里面是输入文件列表，file 为 - 表示从标准输入读取 |
+
+
+
+* 使用 ctags 生成 tags 文件
+建一个测试项目 TestCTags, 里面放三个文件， test.h test.cpp main.cpp
+
+test.h
+#+begin_src c++
+#pragma once
+
+#include <string>
+
+std::string Echo(const std::string& msg);
+
+#+end_src
+
+test.cpp
+#+begin_src c++
+#include "test.h"
+
+std::string Echo(const std::string& msg) {
+    return msg;
+}
+#+end_src
+
+main.cpp
+
+#+begin_src c++
+#include "test.h"
+
+int main() {
+
+    Echo("Hello");
+    return 0;
+}
+#+end_src
+
+然后我们可以对整个目录生成 TAG 文件。
+#+begin_src shell
+ctags -eGR *
+#+end_src
+
+也可以对指定文件生成 TAG 文件。
+#+begin_src shell
+fd ".cpp" | ctags -eG -L -
+#+end_src
+
+fd 是一个跨平台的文件查找工具：https://github.com/sharkdp/fd
+

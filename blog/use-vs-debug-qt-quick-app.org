@@ -1,0 +1,65 @@
+ -*- mode: Org; org-download-image-dir: "../images"; -*-
+#+HUGO_BASE_DIR: ../
+#+HUGO_SECTION: post
+#+TITLE: 使用 Visual Studio 调试 Qt Quick 程序
+#+DATE: 2020-08-05
+#+AUTHOR:
+#+HUGO_CUSTOM_FRONT_MATTER: :author "xhcoding"
+#+HUGO_TAGS: QT
+#+HUGO_CATEGORIES: QT
+#+HUGO_DRAFT: false
+
+Qt Creator 也可以调试，为什么要用 VS 呢？原因主要是 VS 的调试功能更强，调试的界面也更方便操作。
+下面就一步步的讲讲如何用 VS 调试 Qt Quick 程序。
+
+* 在 VS 中配置 QT 开发环境
+
+1. 打开 VS 安装 =Qt VS Tools=
+   在 工具 -> 扩展和更新 -> 联机里面搜索 =Qt= ，安装 =Qt VS Tools= ，安装之后重启
+
+   #+DOWNLOADED: screenshot @ 2020-08-06 14:38:35
+   [[file:../images/在_VS_中配置_QT_开发环境/2020-08-06_14-38-35_screenshot.png]]
+
+2. 配置 QT 版本
+   在菜单栏中的 Qt VS Tools -> Qt Option 中配置 QT 版本和路径，我这里配置了默认 X86 的路径。
+
+   #+DOWNLOADED: screenshot @ 2020-08-06 14:42:09
+   [[file:../images/在_VS_中配置_QT_开发环境/2020-08-06_14-42-09_screenshot.png]]
+
+
+* 用 VS Debug 的方法
+1. 首先我们在 Qt Creator 中新建一个空的 Quick 项目 =HelloQML= ，保证在能够以 Debug 模式编译通过。
+
+#+DOWNLOADED: screenshot @ 2020-08-06 11:48:26
+[[file:../images/2020-08-06_11-48-26_screenshot.png]]
+
+2. 用 qmake 生成 vc 项目
+   #+begin_src shell
+   qmake  ../HelloVS.Pro  -tp vc
+   #+end_src
+
+
+#+DOWNLOADED: screenshot @ 2020-08-06 14:31:41
+[[file:../images/2020-08-06_14-31-41_screenshot.png]]
+
+3. 用 Vs 打开生成的 =HelloVs.vcxproj= ，将项目转换成 Qt 项目, 选择 =Convert custom builds...=
+
+#+DOWNLOADED: screenshot @ 2020-08-06 14:44:28
+[[file:../images/用_VS_Debug_的方法/2020-08-06_14-44-28_screenshot.png]]
+
+转换完后可能出现下面的错误，不用管它。
+
+#+DOWNLOADED: screenshot @ 2020-08-06 14:45:40
+[[file:../images/用_VS_Debug_的方法/2020-08-06_14-45-40_screenshot.png]]
+
+4. 打开生成的 =HelloVS.sln= ，在属性设置里激活 QML 调试。
+
+#+DOWNLOADED: screenshot @ 2020-08-06 14:48:44
+[[file:../images/用_VS_Debug_的方法/2020-08-06_14-48-44_screenshot.png]]
+
+现在就可以快乐的用 VS 调试 QML 程序了。
+
+强大的调试界面
+
+#+DOWNLOADED: screenshot @ 2020-08-06 14:57:38
+[[file:../images/用_VS_Debug_的方法/2020-08-06_14-57-38_screenshot.png]]
